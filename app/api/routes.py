@@ -21,7 +21,7 @@ from app.models import (
     JobStatus,
     RejectedFile,
 )
-from app.storage.files import UploadRejected, save_upload
+from app.storage.files import UploadRejected, download_filename_for, save_upload
 
 router = APIRouter(prefix="/api")
 
@@ -188,7 +188,10 @@ def download_job(job_id: str):
             410,
             {"expired_at": row.get("expires_at")},
         )
-    return FileResponse(result_path, filename=f"{job_id}.{row['target_format']}")
+    return FileResponse(
+        result_path,
+        filename=download_filename_for(row.get("source_filename"), row["target_format"]),
+    )
 
 
 @router.get("/history", response_model=HistoryResponse)

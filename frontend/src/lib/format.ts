@@ -1,3 +1,5 @@
+import type { Job } from '../types'
+
 export function formatBytes(bytes?: number | null) {
   if (!bytes) return '-'
   const units = ['B', 'KB', 'MB', 'GB']
@@ -18,4 +20,12 @@ export function formatDate(value?: string | null) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value))
+}
+
+export function downloadFilename(job: Job) {
+  const normalized = job.source_filename.replace(/\\/g, '/')
+  const baseName =
+    normalized.split('/').pop()?.replace(/[\x00-\x1f\x7f/\\]+/g, '_').trim() || 'upload'
+  const stem = baseName.replace(/\.[^.]*$/, '').trim() || 'upload'
+  return `${stem}.${job.target_format}`
 }

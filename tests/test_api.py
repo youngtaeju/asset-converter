@@ -56,6 +56,11 @@ def test_create_png_to_jpg_job_eager(tmp_path, monkeypatch):
     assert body["target_format"] == "jpg"
     assert any(w["code"] == "TRANSPARENCY_FLATTENED" for w in body["warnings"])
 
+    download = client.get(f"/api/jobs/{body['id']}/download")
+
+    assert download.status_code == 200
+    assert download.headers["content-disposition"] == 'attachment; filename="sample.jpg"'
+
 
 def test_celery_app_registers_conversion_tasks():
     from app.jobs.celery_app import celery_app

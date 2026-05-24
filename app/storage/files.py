@@ -8,6 +8,7 @@ from fastapi import UploadFile
 from app.config import Settings, ensure_runtime_dirs, get_settings
 
 SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9._-]+")
+UNSAFE_DOWNLOAD_NAME_RE = re.compile(r"[\x00-\x1f\x7f/\\]+")
 
 SIGNATURES = {
     "gif": (b"GIF87a", b"GIF89a"),
@@ -29,6 +30,15 @@ def sanitize_filename(filename: str | None) -> str:
     name = Path(filename or "upload.bin").name
     name = SAFE_NAME_RE.sub("_", name).strip("._")
     return name or "upload.bin"
+
+
+def download_filename_for(source_filename: str | None, target_format: str) -> str:
+    raw_name = (source_filename or "upload").replace("\\", "/")
+    base_name = Path(raw_name).name
+    safe_name = UNSAFE_DOWNLOAD_NAME_RE.sub("_", base_name).strip()
+    stem = Path(safe_name).stem.strip() or "upload"
+    extension = target_format.lower().lstrip(".") or "bin"
+    return f"{stem}.{extension}"
 
 
 def detect_format(header: bytes) -> str | None:

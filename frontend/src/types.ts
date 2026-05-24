@@ -1,5 +1,5 @@
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'expired'
-export type TargetFormat = 'webp' | 'mp4' | 'jpg' | 'png'
+export type TargetFormat = 'webp' | 'mp4' | 'jpg' | 'jpeg' | 'png'
 
 export type WarningNote = {
   code: string

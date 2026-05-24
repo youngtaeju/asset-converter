@@ -1,4 +1,4 @@
-import { formatBytes, formatDate } from '../lib/format'
+import { downloadFilename, formatBytes, formatDate } from '../lib/format'
 import { statusLabels } from '../lib/job-status'
 import type { Job } from '../types'
 
@@ -30,7 +30,11 @@ export function JobCard({ job }: { job: Job }) {
       <div className="job-actions">
         <small>만료: {formatDate(job.expires_at)}</small>
         {job.download_available && (
-          <a className="download" href={`/api/jobs/${job.id}/download`}>
+          <a
+            className="download"
+            href={`/api/jobs/${job.id}/download`}
+            download={downloadFilename(job)}
+          >
             다운로드
           </a>
         )}

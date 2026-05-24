@@ -1,45 +1,24 @@
 import type { KeyboardEvent, RefObject } from "react";
-import type { TargetFormat } from "../types";
 import { formatBytes } from "../lib/format";
-
-type TargetOption = {
-  value: TargetFormat;
-  label: string;
-  hint: string;
-};
 
 type UploadPanelProps = {
   files: File[];
-  target: TargetFormat;
-  targetOptions: TargetOption[];
-  backgroundColor: string;
-  message: string;
   isDragging: boolean;
   isSubmitting: boolean;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onAddFiles: (files: FileList | null) => void;
   onRemoveFile: (file: File) => void;
-  onTargetChange: (target: TargetFormat) => void;
-  onBackgroundColorChange: (color: string) => void;
   onDraggingChange: (isDragging: boolean) => void;
-  onSubmit: () => void;
 };
 
 export function UploadPanel({
   files,
-  target,
-  targetOptions,
-  backgroundColor,
-  message,
   isDragging,
   isSubmitting,
   fileInputRef,
   onAddFiles,
   onRemoveFile,
-  onTargetChange,
-  onBackgroundColorChange,
   onDraggingChange,
-  onSubmit,
 }: UploadPanelProps) {
   const selectedSize = files.reduce((total, file) => total + file.size, 0);
 
@@ -55,13 +34,7 @@ export function UploadPanel({
   }
 
   return (
-    <form
-      className="panel upload-panel"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit();
-      }}
-    >
+    <section className="panel upload-panel">
       <div className="panel-header">
         <div>
           <p className="eyebrow">Convert</p>
@@ -133,45 +106,6 @@ export function UploadPanel({
           </div>
         </div>
       )}
-
-      <div className="format-section">
-        <div className="section-label">대상 선택</div>
-        <div className="format-grid">
-          {targetOptions.map((option) => (
-            <label
-              className={target === option.value ? "format active" : "format"}
-              key={option.value}
-            >
-              <input
-                type="radio"
-                name="target_format"
-                value={option.value}
-                checked={target === option.value}
-                onChange={() => onTargetChange(option.value)}
-              />
-              <strong>{option.label}</strong>
-              <span>{option.hint}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <label className="color-row">
-        <span>JPG 배경색</span>
-        <input
-          type="color"
-          value={backgroundColor}
-          onChange={(event) =>
-            onBackgroundColorChange(event.currentTarget.value)
-          }
-        />
-        <code>{backgroundColor}</code>
-      </label>
-
-      <button className="primary full" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "요청 중..." : "변환 시작"}
-      </button>
-      {message && <p className="notice">{message}</p>}
-    </form>
+    </section>
   );
 }

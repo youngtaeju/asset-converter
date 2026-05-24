@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityPanel, type ActivityTab } from "./components/ActivityPanel";
+import { ConversionActionBar } from "./components/ConversionActionBar";
 import { HealthModal } from "./components/HealthModal";
 import { Topbar } from "./components/Topbar";
 import { UploadPanel } from "./components/UploadPanel";
@@ -167,19 +168,12 @@ export function App() {
       <section className="workspace">
         <UploadPanel
           files={files}
-          target={target}
-          targetOptions={targetOptions}
-          backgroundColor={backgroundColor}
-          message={message}
           isDragging={isDragging}
           isSubmitting={isSubmitting}
           fileInputRef={fileInputRef}
           onAddFiles={addFiles}
           onRemoveFile={removeFile}
-          onTargetChange={setTarget}
-          onBackgroundColorChange={setBackgroundColor}
           onDraggingChange={setIsDragging}
-          onSubmit={() => void submit()}
         />
         <ActivityPanel
           activeTab={activityTab}
@@ -188,6 +182,18 @@ export function App() {
           onTabChange={setActivityTab}
         />
       </section>
+
+      <ConversionActionBar
+        filesCount={files.length}
+        target={target}
+        targetOptions={targetOptions}
+        backgroundColor={backgroundColor}
+        message={message}
+        isSubmitting={isSubmitting}
+        onTargetChange={setTarget}
+        onBackgroundColorChange={setBackgroundColor}
+        onSubmit={() => void submit()}
+      />
 
       {healthModalOpen && (
         <HealthModal

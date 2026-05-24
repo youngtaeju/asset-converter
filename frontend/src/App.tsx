@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityPanel, type ActivityTab } from "./components/ActivityPanel";
 import { ConversionActionBar } from "./components/ConversionActionBar";
 import { HealthModal } from "./components/HealthModal";
+import { Toast, type ToastState, type ToastTone } from "./components/Toast";
 import { Topbar } from "./components/Topbar";
 import { UploadPanel } from "./components/UploadPanel";
 import {
@@ -32,13 +33,17 @@ export function App() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [history, setHistory] = useState<Job[]>([]);
   const [activityTab, setActivityTab] = useState<ActivityTab>("jobs");
-  const [message, setMessage] = useState<string>("");
+  const [toast, setToast] = useState<ToastState | null>(null);
   const [healthModalOpen, setHealthModalOpen] = useState(false);
   const [healthResponse, setHealthResponse] = useState<string>("");
   const [isHealthLoading, setIsHealthLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  function showToast(tone: ToastTone, message: string) {
+    setToast({ id: Date.now(), tone, message });
+  }
 
   function fileKey(file: File) {
     return `${file.name}-${file.size}-${file.lastModified}`;
@@ -88,6 +93,14 @@ export function App() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [healthModalOpen]);
 
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = window.setTimeout(() => {
+      setToast((current) => (current?.id === toast.id ? null : current));
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
   function addFiles(fileList: FileList | null) {
     const selected = Array.from(fileList ?? []);
     if (selected.length === 0) return;
@@ -102,13 +115,11 @@ export function App() {
       return next;
     });
     if (fileInputRef.current) fileInputRef.current.value = "";
-    setMessage("");
   }
 
   function removeFile(targetFile: File) {
     setFiles((current) => current.filter((file) => file !== targetFile));
     if (fileInputRef.current) fileInputRef.current.value = "";
-    setMessage("");
   }
 
   async function openHealthModal() {
@@ -131,12 +142,11 @@ export function App() {
 
   async function submit() {
     if (files.length === 0) {
-      setMessage("변환할 파일을 선택해 주세요.");
+      showToast("error", "변환할 파일을 선택해 주세요.");
       return;
     }
 
     setIsSubmitting(true);
-    setMessage("");
     try {
       const data = await createBatchJobs(files, target, backgroundColor);
       setJobs((current) => [...data.jobs, ...current]);
@@ -146,12 +156,14 @@ export function App() {
       const rejected = data.rejected?.length
         ? `, 거부 ${data.rejected.length}개`
         : "";
-      setMessage(
+      showToast(
+        "success",
         `변환 job ${data.accepted_count}개를 생성했습니다${rejected}.`,
       );
       await refreshHistory();
     } catch (error) {
-      setMessage(
+      showToast(
+        "error",
         error instanceof Error
           ? error.message
           : "업로드 중 오류가 발생했습니다.",
@@ -188,12 +200,13 @@ export function App() {
         target={target}
         targetOptions={targetOptions}
         backgroundColor={backgroundColor}
-        message={message}
         isSubmitting={isSubmitting}
         onTargetChange={setTarget}
         onBackgroundColorChange={setBackgroundColor}
         onSubmit={() => void submit()}
       />
+
+      {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
 
       {healthModalOpen && (
         <HealthModal

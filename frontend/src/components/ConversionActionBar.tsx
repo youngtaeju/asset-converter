@@ -11,7 +11,6 @@ type ConversionActionBarProps = {
   target: TargetFormat;
   targetOptions: TargetOption[];
   backgroundColor: string;
-  message: string;
   isSubmitting: boolean;
   onTargetChange: (target: TargetFormat) => void;
   onBackgroundColorChange: (color: string) => void;
@@ -23,7 +22,6 @@ export function ConversionActionBar({
   target,
   targetOptions,
   backgroundColor,
-  message,
   isSubmitting,
   onTargetChange,
   onBackgroundColorChange,
@@ -84,8 +82,6 @@ export function ConversionActionBar({
                 : "파일 선택 필요"}
           </button>
         </div>
-
-        {message && <p className="notice conversion-notice">{message}</p>}
       </div>
     </footer>
   );

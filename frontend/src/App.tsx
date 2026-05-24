@@ -39,6 +39,10 @@ export function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  function fileKey(file: File) {
+    return `${file.name}-${file.size}-${file.lastModified}`;
+  }
+
   const activeJobs = useMemo(
     () =>
       jobs.filter((job) => job.status === "queued" || job.status === "running"),
@@ -89,17 +93,20 @@ export function App() {
     setFiles((current) => {
       const next = [...current];
       selected.forEach((file) => {
-        const key = `${file.name}-${file.size}-${file.lastModified}`;
-        if (
-          !next.some(
-            (item) => `${item.name}-${item.size}-${item.lastModified}` === key,
-          )
-        ) {
+        const key = fileKey(file);
+        if (!next.some((item) => fileKey(item) === key)) {
           next.push(file);
         }
       });
       return next;
     });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setMessage("");
+  }
+
+  function removeFile(targetFile: File) {
+    setFiles((current) => current.filter((file) => file !== targetFile));
+    if (fileInputRef.current) fileInputRef.current.value = "";
     setMessage("");
   }
 
@@ -167,6 +174,7 @@ export function App() {
           isSubmitting={isSubmitting}
           fileInputRef={fileInputRef}
           onAddFiles={addFiles}
+          onRemoveFile={removeFile}
           onTargetChange={setTarget}
           onBackgroundColorChange={setBackgroundColor}
           onDraggingChange={setIsDragging}

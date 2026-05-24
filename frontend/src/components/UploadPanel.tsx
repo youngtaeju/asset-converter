@@ -18,6 +18,7 @@ type UploadPanelProps = {
   isSubmitting: boolean;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onAddFiles: (files: FileList | null) => void;
+  onRemoveFile: (file: File) => void;
   onTargetChange: (target: TargetFormat) => void;
   onBackgroundColorChange: (color: string) => void;
   onDraggingChange: (isDragging: boolean) => void;
@@ -34,6 +35,7 @@ export function UploadPanel({
   isSubmitting,
   fileInputRef,
   onAddFiles,
+  onRemoveFile,
   onTargetChange,
   onBackgroundColorChange,
   onDraggingChange,
@@ -102,8 +104,19 @@ export function UploadPanel({
               className="file-item"
               key={`${file.name}-${file.size}-${file.lastModified}`}
             >
-              <span>{file.name}</span>
-              <small>{formatBytes(file.size)}</small>
+              <div className="file-meta">
+                <span>{file.name}</span>
+                <small>{formatBytes(file.size)}</small>
+              </div>
+              <button
+                className="file-remove"
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => onRemoveFile(file)}
+                aria-label={`${file.name} 제거`}
+              >
+                제거
+              </button>
             </div>
           ))}
         </div>

@@ -110,7 +110,8 @@ input {
 .secondary,
 .status-badge,
 .download,
-.icon-button {
+.icon-button,
+.file-remove {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -150,7 +151,8 @@ input {
 
 .secondary,
 .status-badge,
-.icon-button {
+.icon-button,
+.file-remove {
   border-color: #d1d5db;
   background: #ffffff;
   color: #374151;
@@ -158,8 +160,14 @@ input {
 
 .secondary:hover,
 .status-badge:hover,
-.icon-button:hover {
+.icon-button:hover,
+.file-remove:hover:not(:disabled) {
   background: #f9fafb;
+}
+
+.file-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .status-badge {
@@ -250,6 +258,25 @@ input {
 .job-card span,
 .job-actions small {
   color: #6b7280;
+}
+
+.file-meta {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.file-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-remove {
+  min-height: 30px;
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  font-size: 0.78rem;
 }
 
 .format-grid {
@@ -540,5 +567,10 @@ input {
   .file-item {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .file-meta,
+  .file-remove {
+    width: 100%;
   }
 }

@@ -6,7 +6,7 @@ export function JobCard({ job }: { job: Job }) {
   return (
     <article className={`job-card ${job.status}`}>
       <div className="job-topline">
-        <div>
+        <div className="job-meta">
           <strong>{job.source_filename}</strong>
           <span>
             {job.input_format} → {job.target_format} ·{" "}

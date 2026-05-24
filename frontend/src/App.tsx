@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityPanel, type ActivityTab } from "./components/ActivityPanel";
 import { HealthModal } from "./components/HealthModal";
-import { HistoryPanel } from "./components/HistoryPanel";
-import { JobsPanel } from "./components/JobsPanel";
 import { Topbar } from "./components/Topbar";
 import { UploadPanel } from "./components/UploadPanel";
 import {
@@ -31,6 +30,7 @@ export function App() {
   const [backgroundColor, setBackgroundColor] = useState("#ffffff");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [history, setHistory] = useState<Job[]>([]);
+  const [activityTab, setActivityTab] = useState<ActivityTab>("jobs");
   const [message, setMessage] = useState<string>("");
   const [healthModalOpen, setHealthModalOpen] = useState(false);
   const [healthResponse, setHealthResponse] = useState<string>("");
@@ -139,6 +139,7 @@ export function App() {
     try {
       const data = await createBatchJobs(files, target, backgroundColor);
       setJobs((current) => [...data.jobs, ...current]);
+      setActivityTab("jobs");
       setFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = "";
       const rejected = data.rejected?.length
@@ -180,8 +181,12 @@ export function App() {
           onDraggingChange={setIsDragging}
           onSubmit={() => void submit()}
         />
-        <JobsPanel jobs={jobs} />
-        <HistoryPanel history={history} />
+        <ActivityPanel
+          activeTab={activityTab}
+          jobs={jobs}
+          history={history}
+          onTabChange={setActivityTab}
+        />
       </section>
 
       {healthModalOpen && (

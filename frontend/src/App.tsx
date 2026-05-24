@@ -22,8 +22,8 @@ type TargetOption = {
 const targetOptions: TargetOption[] = [
   { value: "webp", label: "WebP", hint: "웹 이미지 최적화" },
   { value: "mp4", label: "MP4", hint: "GIF 애니메이션 변환" },
-  { value: "jpg", label: "JPG", hint: "공유용 정적 이미지" },
   { value: "png", label: "PNG", hint: "무손실 정적 이미지" },
+  { value: "jpg", label: "JPG", hint: "공유용 정적 이미지" },
 ];
 
 export function App() {

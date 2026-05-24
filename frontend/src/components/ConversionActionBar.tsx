@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { TargetFormat } from "../types";
 
 type TargetOption = {
@@ -28,6 +29,26 @@ export function ConversionActionBar({
   onSubmit,
 }: ConversionActionBarProps) {
   const showsBackgroundColor = target === "jpg" || target === "jpeg";
+  const [backgroundColorDraft, setBackgroundColorDraft] =
+    useState(backgroundColor);
+
+  useEffect(() => {
+    setBackgroundColorDraft(backgroundColor);
+  }, [backgroundColor]);
+
+  function normalizeHexColor(value: string) {
+    const trimmed = value.trim();
+    const withHash = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+    return /^#[0-9a-fA-F]{6}$/.test(withHash) ? withHash.toLowerCase() : null;
+  }
+
+  function updateBackgroundColorDraft(value: string) {
+    setBackgroundColorDraft(value);
+    const normalized = normalizeHexColor(value);
+    if (normalized) {
+      onBackgroundColorChange(normalized);
+    }
+  }
 
   return (
     <footer className="conversion-footer" aria-label="변환 설정">
@@ -58,14 +79,29 @@ export function ConversionActionBar({
           {showsBackgroundColor && (
             <label className="color-row compact">
               <span>JPG 배경색</span>
-              <input
-                type="color"
-                value={backgroundColor}
-                onChange={(event) =>
-                  onBackgroundColorChange(event.currentTarget.value)
-                }
-              />
-              <code>{backgroundColor}</code>
+              <div className="color-fields">
+                <input
+                  className="color-picker-input"
+                  type="color"
+                  value={backgroundColor}
+                  onChange={(event) =>
+                    updateBackgroundColorDraft(event.currentTarget.value)
+                  }
+                />
+                <input
+                  className="color-hex-input"
+                  type="text"
+                  value={backgroundColorDraft}
+                  inputMode="text"
+                  maxLength={7}
+                  spellCheck={false}
+                  aria-label="JPG 배경색 HEX 코드"
+                  onChange={(event) =>
+                    updateBackgroundColorDraft(event.currentTarget.value)
+                  }
+                  onBlur={() => setBackgroundColorDraft(backgroundColor)}
+                />
+              </div>
             </label>
           )}
 

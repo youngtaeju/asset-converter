@@ -41,6 +41,8 @@ export function UploadPanel({
   onDraggingChange,
   onSubmit,
 }: UploadPanelProps) {
+  const selectedSize = files.reduce((total, file) => total + file.size, 0);
+
   function openFilePicker() {
     fileInputRef.current?.click();
   }
@@ -98,47 +100,60 @@ export function UploadPanel({
       </div>
 
       {files.length > 0 && (
-        <div className="file-list">
-          {files.map((file) => (
-            <div
-              className="file-item"
-              key={`${file.name}-${file.size}-${file.lastModified}`}
-            >
-              <div className="file-meta">
-                <span>{file.name}</span>
-                <small>{formatBytes(file.size)}</small>
-              </div>
-              <button
-                className="file-remove"
-                type="button"
-                disabled={isSubmitting}
-                onClick={() => onRemoveFile(file)}
-                aria-label={`${file.name} 제거`}
+        <div className="selected-files">
+          <div className="selected-files-summary">
+            <span>선택된 파일 {files.length}개</span>
+            <small>총 {formatBytes(selectedSize)}</small>
+          </div>
+          <div className="file-list">
+            {files.map((file, index) => (
+              <div
+                className="file-item"
+                key={`${file.name}-${file.size}-${file.lastModified}`}
               >
-                제거
-              </button>
-            </div>
-          ))}
+                <span className="file-index">{index + 1}</span>
+                <div className="file-meta">
+                  <span>{file.name}</span>
+                  <small>{formatBytes(file.size)}</small>
+                </div>
+                <button
+                  className="file-remove"
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => onRemoveFile(file)}
+                  aria-label={`${file.name} 제거`}
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                    <path d="M9 3h6l1 2h4v2H4V5h4l1-2Z" />
+                    <path d="M6 9h12l-1 11H7L6 9Zm4 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      <div className="format-grid">
-        {targetOptions.map((option) => (
-          <label
-            className={target === option.value ? "format active" : "format"}
-            key={option.value}
-          >
-            <input
-              type="radio"
-              name="target_format"
-              value={option.value}
-              checked={target === option.value}
-              onChange={() => onTargetChange(option.value)}
-            />
-            <strong>{option.label}</strong>
-            <span>{option.hint}</span>
-          </label>
-        ))}
+      <div className="format-section">
+        <div className="section-label">대상 선택</div>
+        <div className="format-grid">
+          {targetOptions.map((option) => (
+            <label
+              className={target === option.value ? "format active" : "format"}
+              key={option.value}
+            >
+              <input
+                type="radio"
+                name="target_format"
+                value={option.value}
+                checked={target === option.value}
+                onChange={() => onTargetChange(option.value)}
+              />
+              <strong>{option.label}</strong>
+              <span>{option.hint}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
       <label className="color-row">

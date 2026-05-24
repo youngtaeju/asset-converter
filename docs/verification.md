@@ -25,12 +25,13 @@ curl -fsS http://localhost:8000/docs >/dev/null
 
 ```bash
 INPUT_FILE="${INPUT_FILE:?set INPUT_FILE to a local GIF path}"
-JOB_ID=$(curl -sS -X POST http://localhost:8000/api/jobs \
+COOKIE_JAR="$(mktemp)"
+JOB_ID=$(curl -sS -c "$COOKIE_JAR" -b "$COOKIE_JAR" -X POST http://localhost:8000/api/jobs \
   -F "file=@${INPUT_FILE}" \
   -F "target_format=mp4" | python -c 'import json,sys; print(json.load(sys.stdin)["job"]["id"])')
 
-curl -sS "http://localhost:8000/api/jobs/${JOB_ID}"
-curl -L -o result.mp4 "http://localhost:8000/api/jobs/${JOB_ID}/download"
+curl -sS -b "$COOKIE_JAR" "http://localhost:8000/api/jobs/${JOB_ID}"
+curl -L -b "$COOKIE_JAR" -o result.mp4 "http://localhost:8000/api/jobs/${JOB_ID}/download"
 test -s result.mp4
 ```
 

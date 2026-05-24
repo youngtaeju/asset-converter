@@ -16,6 +16,12 @@ Asset Converter는 FastAPI 기반 REST API를 제공합니다. 실행 중인 서
 
 기본 파일당 업로드 제한은 `ASSET_MAX_UPLOAD_MB=100`입니다. Docker Compose의 `frontend` nginx 업로드 제한도 기본 `100m`으로 맞춰져 있습니다. 더 큰 값을 사용하려면 애플리케이션 설정과 프록시 설정을 함께 조정해야 합니다.
 
+## 익명 세션
+
+API 서버는 job 생성, 조회, 다운로드, history 조회 요청에서 익명 세션 쿠키를 발급합니다. 세션 쿠키는 `HttpOnly`, `SameSite=Lax`, `Path=/` 속성을 사용하며 기본 이름은 `asset_session`입니다. Job metadata에는 원본 쿠키 값이 아니라 세션 token hash만 저장합니다.
+
+`GET /api/history`, `GET /api/jobs/{job_id}`, `GET /api/jobs/{job_id}/download`는 현재 세션에서 생성한 job만 반환합니다. 다른 세션의 job ID로 접근하면 존재 여부를 노출하지 않도록 `404`를 반환합니다.
+
 ## `POST /api/jobs`
 
 단일 파일 변환 job을 생성합니다. 요청은 `multipart/form-data` 형식입니다.
@@ -113,7 +119,7 @@ job의 현재 metadata를 조회합니다.
 
 ## `GET /api/history`
 
-파일 blob을 제외한 변환 metadata history를 조회합니다. 원본 파일이나 결과 파일 자체는 반환하지 않습니다.
+현재 익명 세션의 변환 metadata history를 조회합니다. 파일 blob은 반환하지 않으며, 다른 세션에서 만든 job은 포함하지 않습니다.
 
 Query parameters:
 

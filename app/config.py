@@ -16,6 +16,13 @@ class Settings:
     max_animated_frames: int = int(os.getenv("ASSET_MAX_ANIMATED_FRAMES", "720"))
     ffmpeg_timeout_seconds: int = int(os.getenv("ASSET_FFMPEG_TIMEOUT_SECONDS", "180"))
     ttl_hours: float = float(os.getenv("ASSET_TTL_HOURS", "24"))
+    session_cookie_name: str = os.getenv("ASSET_SESSION_COOKIE_NAME", "asset_session")
+    session_ttl_hours: float = float(os.getenv("ASSET_SESSION_TTL_HOURS", "24"))
+    cookie_secure: bool = os.getenv("ASSET_COOKIE_SECURE", "false").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
     celery_always_eager: bool = os.getenv("ASSET_CELERY_ALWAYS_EAGER", "false").lower() in {
         "1",
         "true",

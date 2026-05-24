@@ -3,7 +3,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.config import get_settings
@@ -21,6 +21,7 @@ from app.models import (
     JobStatus,
     RejectedFile,
 )
+from app.session import ClientSession, apply_session_cookie, read_or_create_session
 from app.storage.files import UploadRejected, download_filename_for, save_upload
 
 router = APIRouter(prefix="/api")
@@ -74,6 +75,7 @@ def error(code: str, message: str, status_code: int, details: dict | None = None
 def create_job_from_upload(
     file: UploadFile,
     target_format: ConversionTarget,
+    owner_session_hash: str,
     preset: str = "default",
     background_color: str = "#ffffff",
 ) -> JobResponse:
@@ -102,6 +104,7 @@ def create_job_from_upload(
             "source_path": str(source_path),
             "preset": preset,
             "background_color": background_color,
+            "owner_session_hash": owner_session_hash,
         }
     )
     eager_env = os.getenv("ASSET_CELERY_ALWAYS_EAGER", "false").lower()
@@ -112,6 +115,13 @@ def create_job_from_upload(
     return to_job_response(row)
 
 
+def owned_job_or_not_found(job_id: str, session: ClientSession) -> dict | None:
+    row = store().get_job(job_id)
+    if not row or row.get("owner_session_hash") != session.token_hash:
+        return None
+    return row
+
+
 @router.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -119,33 +129,58 @@ def health() -> dict[str, str]:
 
 @router.post("/jobs", response_model=JobEnvelope, status_code=202)
 def create_job(
+    request: Request,
+    response: Response,
     file: Annotated[UploadFile, File()],
     target_format: Annotated[ConversionTarget, Form()],
     preset: Annotated[str, Form()] = "default",
     background_color: Annotated[str, Form()] = "#ffffff",
 ) -> JobEnvelope | JSONResponse:
+    settings = get_settings()
+    session = read_or_create_session(request, settings)
+    apply_session_cookie(response, session, settings)
     try:
-        job = create_job_from_upload(file, target_format, preset, background_color)
+        job = create_job_from_upload(
+            file,
+            target_format,
+            session.token_hash,
+            preset,
+            background_color,
+        )
         return JobEnvelope(job=job)
     except UploadRejected as exc:
-        return error(exc.code, exc.message, 400)
+        error_response = error(exc.code, exc.message, 400)
+        apply_session_cookie(error_response, session, settings)
+        return error_response
 
 
 @router.post("/jobs/batch", response_model=BatchResponse, status_code=202)
 def create_batch_jobs(
+    request: Request,
+    response: Response,
     files: Annotated[list[UploadFile], File(alias="files[]")],
     target_format: Annotated[ConversionTarget, Form()],
     preset: Annotated[str, Form()] = "default",
     background_color: Annotated[str, Form()] = "#ffffff",
 ) -> BatchResponse:
     settings = get_settings()
+    session = read_or_create_session(request, settings)
+    apply_session_cookie(response, session, settings)
     if len(files) > settings.max_batch_files:
         raise HTTPException(status_code=413, detail="Too many files in batch.")
     jobs: list[JobResponse] = []
     rejected: list[RejectedFile] = []
     for file in files:
         try:
-            jobs.append(create_job_from_upload(file, target_format, preset, background_color))
+            jobs.append(
+                create_job_from_upload(
+                    file,
+                    target_format,
+                    session.token_hash,
+                    preset,
+                    background_color,
+                )
+            )
         except UploadRejected as exc:
             rejected.append(
                 RejectedFile(
@@ -157,46 +192,79 @@ def create_batch_jobs(
 
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)
-def get_job(job_id: str) -> JobResponse:
-    row = store().get_job(job_id)
+def get_job(job_id: str, request: Request, response: Response) -> JobResponse:
+    settings = get_settings()
+    session = read_or_create_session(request, settings)
+    apply_session_cookie(response, session, settings)
+    row = owned_job_or_not_found(job_id, session)
     if not row:
         raise HTTPException(status_code=404, detail="Job not found.")
     return to_job_response(row)
 
 
 @router.get("/jobs/{job_id}/download")
-def download_job(job_id: str):
-    row = store().get_job(job_id)
+def download_job(job_id: str, request: Request):
+    settings = get_settings()
+    session = read_or_create_session(request, settings)
+    row = owned_job_or_not_found(job_id, session)
     if not row:
-        return error("NOT_FOUND", "Job not found.", 404)
+        error_response = error("NOT_FOUND", "Job not found.", 404)
+        apply_session_cookie(error_response, session, settings)
+        return error_response
     response = to_job_response(row)
     if response.status == JobStatus.expired:
         expired_at = response.expires_at.isoformat() if response.expires_at else None
-        return error(
+        error_response = error(
             "RESULT_EXPIRED",
             "The converted file is no longer available.",
             410,
             {"expired_at": expired_at},
         )
+        apply_session_cookie(error_response, session, settings)
+        return error_response
     if response.status != JobStatus.succeeded:
-        return error("RESULT_NOT_READY", "The converted file is not ready for download.", 409)
+        error_response = error(
+            "RESULT_NOT_READY",
+            "The converted file is not ready for download.",
+            409,
+        )
+        apply_session_cookie(error_response, session, settings)
+        return error_response
     result_path = row.get("result_path")
     if not result_path or not Path(result_path).exists():
-        return error(
+        error_response = error(
             "RESULT_EXPIRED",
             "The converted file is no longer available.",
             410,
             {"expired_at": row.get("expires_at")},
         )
-    return FileResponse(
+        apply_session_cookie(error_response, session, settings)
+        return error_response
+    file_response = FileResponse(
         result_path,
         filename=download_filename_for(row.get("source_filename"), row["target_format"]),
     )
+    apply_session_cookie(file_response, session, settings)
+    return file_response
 
 
 @router.get("/history", response_model=HistoryResponse)
-def history(limit: int = 50, offset: int = 0, status: JobStatus | None = None) -> HistoryResponse:
-    rows = store().list_jobs(limit=limit, offset=offset, status=status.value if status else None)
+def history(
+    request: Request,
+    response: Response,
+    limit: int = 50,
+    offset: int = 0,
+    status: JobStatus | None = None,
+) -> HistoryResponse:
+    settings = get_settings()
+    session = read_or_create_session(request, settings)
+    apply_session_cookie(response, session, settings)
+    rows = store().list_jobs(
+        limit=limit,
+        offset=offset,
+        status=status.value if status else None,
+        owner_session_hash=session.token_hash,
+    )
     return HistoryResponse(
         jobs=[to_job_response(row) for row in rows],
         limit=max(1, min(limit, 100)),

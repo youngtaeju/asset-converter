@@ -53,7 +53,8 @@ docker compose up --build
 단일 변환 job 생성:
 
 ```bash
-curl -sS -X POST http://localhost:8000/api/jobs \
+COOKIE_JAR="$(mktemp)"
+curl -sS -c "$COOKIE_JAR" -b "$COOKIE_JAR" -X POST http://localhost:8000/api/jobs \
   -F "file=@path/to/input.gif" \
   -F "target_format=mp4"
 ```
@@ -61,19 +62,19 @@ curl -sS -X POST http://localhost:8000/api/jobs \
 job 상태 조회:
 
 ```bash
-curl -sS http://localhost:8000/api/jobs/<job-id>
+curl -sS -b "$COOKIE_JAR" http://localhost:8000/api/jobs/<job-id>
 ```
 
 완료된 결과 다운로드:
 
 ```bash
-curl -L -o result.mp4 http://localhost:8000/api/jobs/<job-id>/download
+curl -L -b "$COOKIE_JAR" -o result.mp4 http://localhost:8000/api/jobs/<job-id>/download
 ```
 
 여러 파일 batch 변환 요청:
 
 ```bash
-curl -sS -X POST http://localhost:8000/api/jobs/batch \
+curl -sS -c "$COOKIE_JAR" -b "$COOKIE_JAR" -X POST http://localhost:8000/api/jobs/batch \
   -F "files[]=@path/to/input.png" \
   -F "files[]=@path/to/unsupported.txt" \
   -F "target_format=webp"
@@ -92,6 +93,9 @@ curl -sS -X POST http://localhost:8000/api/jobs/batch \
 | `CELERY_RESULT_BACKEND` | `REDIS_URL` 값 | Celery result backend URL |
 | `ASSET_CELERY_ALWAYS_EAGER` | `false` | 테스트/로컬 실행에서 Celery 작업을 동기 실행할지 여부 |
 | `ASSET_TTL_HOURS` | `24` | 원본/결과 파일 보관 시간 |
+| `ASSET_SESSION_COOKIE_NAME` | `asset_session` | 익명 세션 쿠키 이름 |
+| `ASSET_SESSION_TTL_HOURS` | `24` | 익명 세션 쿠키 유지 시간 |
+| `ASSET_COOKIE_SECURE` | `false` | HTTPS 환경에서 세션 쿠키에 `Secure` 속성을 적용할지 여부 |
 | `ASSET_MAX_UPLOAD_MB` | `100` | 파일당 업로드 제한. 기본 `frontend` nginx 업로드 제한도 100MB로 맞춰져 있음 |
 | `ASSET_MAX_BATCH_FILES` | `20` | batch 요청당 최대 파일 수 |
 | `ASSET_MAX_ANIMATED_SECONDS` | `30` | animated input 최대 길이 |
@@ -107,6 +111,8 @@ curl -sS -X POST http://localhost:8000/api/jobs/batch \
 ## 파일 보관 정책
 
 원본 파일과 결과 파일은 임시로만 보관됩니다. 정리 작업 이후에도 metadata는 SQLite에 남지만, 만료된 결과를 다운로드하려고 하면 HTTP `410`과 `RESULT_EXPIRED` 에러가 반환됩니다.
+
+History와 다운로드는 익명 세션 쿠키 기준으로 제한됩니다. 같은 브라우저 세션에서 만든 변환만 최근 기록에 표시되고, 다른 세션의 job ID로 접근하면 `404`가 반환됩니다.
 
 정리 작업은 `scheduler` 서비스에서 주기적으로 실행되며, `api`/`worker` 시작 시점에도 보조적으로 실행됩니다.
 

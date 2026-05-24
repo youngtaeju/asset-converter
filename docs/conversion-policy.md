@@ -30,6 +30,7 @@ Asset Converter는 변환 결과가 사용자가 기대한 의미와 달라질 �
 - 입력 포맷은 GIF, JPEG, PNG, WebP만 허용합니다.
 - 업로드 파일은 UUID job 디렉터리 아래의 관리되는 temp root에 저장합니다.
 - 사용자가 제공한 파일명은 filesystem path로 직접 사용하지 않습니다.
+- Job 조회, history, 다운로드는 익명 세션 쿠키의 token hash로 소유 범위를 제한합니다.
 - 설정된 업로드 크기와 batch 파일 수 제한을 초과하면 구조화된 오류를 반환합니다.
 - FFmpeg stderr는 저장하거나 반환하기 전에 길이를 제한하고 sanitize합니다.
 

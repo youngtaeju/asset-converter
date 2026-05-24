@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS jobs (
   source_path TEXT NOT NULL,
   result_path TEXT,
   preset TEXT NOT NULL DEFAULT 'default',
-  background_color TEXT NOT NULL DEFAULT '#ffffff'
+  background_color TEXT NOT NULL DEFAULT '#ffffff',
+  owner_session_hash TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
@@ -71,6 +72,16 @@ class JobStore:
     def init_db(self) -> None:
         with self.connect() as conn:
             conn.executescript(SCHEMA)
+            columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
+            }
+            if "owner_session_hash" not in columns:
+                conn.execute("ALTER TABLE jobs ADD COLUMN owner_session_hash TEXT")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_owner_session_hash "
+                "ON jobs(owner_session_hash)"
+            )
 
     def create_job(self, job: dict[str, Any]) -> dict[str, Any]:
         with self.connect() as conn:
@@ -78,8 +89,9 @@ class JobStore:
                 """
                 INSERT INTO jobs (
                     id, status, source_filename, input_format, target_format, input_size_bytes,
-                    warnings_json, created_at, expires_at, source_path, preset, background_color
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    warnings_json, created_at, expires_at, source_path, preset, background_color,
+                    owner_session_hash
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     job["id"],
@@ -94,6 +106,7 @@ class JobStore:
                     job["source_path"],
                     job.get("preset", "default"),
                     job.get("background_color", "#ffffff"),
+                    job.get("owner_session_hash"),
                 ),
             )
         return self.get_job(job["id"])  # type: ignore[return-value]
@@ -104,21 +117,33 @@ class JobStore:
         return self._row_to_dict(row) if row else None
 
     def list_jobs(
-        self, limit: int = 50, offset: int = 0, status: str | None = None
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        status: str | None = None,
+        owner_session_hash: str | None = None,
     ) -> list[dict[str, Any]]:
         limit = max(1, min(limit, 100))
         offset = max(0, offset)
         with self.connect() as conn:
+            where: list[str] = []
+            params: list[Any] = []
             if status:
-                rows = conn.execute(
-                    "SELECT * FROM jobs WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                    (status, limit, offset),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                    (limit, offset),
-                ).fetchall()
+                where.append("status = ?")
+                params.append(status)
+            if owner_session_hash is not None:
+                where.append("owner_session_hash = ?")
+                params.append(owner_session_hash)
+            where_clause = f"WHERE {' AND '.join(where)}" if where else ""
+            rows = conn.execute(
+                f"""
+                SELECT * FROM jobs
+                {where_clause}
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+                """,
+                (*params, limit, offset),
+            ).fetchall()
         return [self._row_to_dict(row) for row in rows]
 
     def transition(self, job_id: str, new_status: JobStatus, **fields: Any) -> dict[str, Any]:

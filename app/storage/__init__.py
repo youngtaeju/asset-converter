@@ -1,0 +1,1 @@
+"""Managed temporary file storage."""

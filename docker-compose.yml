@@ -1,0 +1,69 @@
+x-app-environment: &app-environment
+  ASSET_TEMP_ROOT: ${ASSET_TEMP_ROOT:-asset_temp}
+  ASSET_DATA_ROOT: ${ASSET_DATA_ROOT:-asset_data}
+  ASSET_SQLITE_PATH: ${ASSET_SQLITE_PATH:-asset_data/jobs.sqlite3}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+  ASSET_TTL_HOURS: ${ASSET_TTL_HOURS:-24}
+  ASSET_MAX_UPLOAD_MB: ${ASSET_MAX_UPLOAD_MB:-100}
+  ASSET_MAX_BATCH_FILES: ${ASSET_MAX_BATCH_FILES:-20}
+  ASSET_MAX_ANIMATED_SECONDS: ${ASSET_MAX_ANIMATED_SECONDS:-30}
+  ASSET_MAX_ANIMATED_FRAMES: ${ASSET_MAX_ANIMATED_FRAMES:-720}
+  ASSET_FFMPEG_TIMEOUT_SECONDS: ${ASSET_FFMPEG_TIMEOUT_SECONDS:-180}
+  ASSET_CELERY_ALWAYS_EAGER: ${ASSET_CELERY_ALWAYS_EAGER:-false}
+
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      api:
+        condition: service_started
+
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    environment: *app-environment
+    ports:
+      - "8000:8000"
+    volumes:
+      - asset_temp:/app/asset_temp
+      - asset_data:/app/asset_data
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: celery -A app.jobs.celery_app worker --loglevel=info
+    environment: *app-environment
+    volumes:
+      - asset_temp:/app/asset_temp
+      - asset_data:/app/asset_data
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  scheduler:
+    build: .
+    command: celery -A app.jobs.celery_app beat --loglevel=info
+    environment: *app-environment
+    volumes:
+      - asset_temp:/app/asset_temp
+      - asset_data:/app/asset_data
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  asset_temp:
+  asset_data:

@@ -1,10 +1,14 @@
 type HealthModalProps = {
-  response: string
-  isLoading: boolean
-  onClose: () => void
-}
+  response: string;
+  isLoading: boolean;
+  onClose: () => void;
+};
 
-export function HealthModal({ response, isLoading, onClose }: HealthModalProps) {
+export function HealthModal({
+  response,
+  isLoading,
+  onClose,
+}: HealthModalProps) {
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <section
@@ -23,8 +27,10 @@ export function HealthModal({ response, isLoading, onClose }: HealthModalProps) 
             닫기
           </button>
         </div>
-        <pre className="health-response">{isLoading ? '확인 중...' : response}</pre>
+        <pre className="health-response">
+          {isLoading ? "확인 중..." : response}
+        </pre>
       </section>
     </div>
-  )
+  );
 }

@@ -1,6 +1,6 @@
-import { downloadFilename, formatBytes, formatDate } from '../lib/format'
-import { statusLabels } from '../lib/job-status'
-import type { Job } from '../types'
+import { downloadFilename, formatBytes, formatDate } from "../lib/format";
+import { statusLabels } from "../lib/job-status";
+import type { Job } from "../types";
 
 export function JobCard({ job }: { job: Job }) {
   return (
@@ -9,13 +9,23 @@ export function JobCard({ job }: { job: Job }) {
         <div>
           <strong>{job.source_filename}</strong>
           <span>
-            {job.input_format} → {job.target_format} · {formatBytes(job.input_size_bytes)}
+            {job.input_format} → {job.target_format} ·{" "}
+            {formatBytes(job.input_size_bytes)}
           </span>
         </div>
         <span className="status">{statusLabels[job.status]}</span>
       </div>
       <div className="progress-track">
-        <span style={{ width: job.status === 'succeeded' ? '100%' : job.status === 'failed' ? '100%' : '48%' }} />
+        <span
+          style={{
+            width:
+              job.status === "succeeded"
+                ? "100%"
+                : job.status === "failed"
+                  ? "100%"
+                  : "48%",
+          }}
+        />
       </div>
       {job.warnings.length > 0 && (
         <div className="warnings">
@@ -40,5 +50,5 @@ export function JobCard({ job }: { job: Job }) {
         )}
       </div>
     </article>
-  )
+  );
 }

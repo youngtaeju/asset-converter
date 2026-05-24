@@ -1,28 +1,28 @@
-import type { KeyboardEvent, RefObject } from 'react'
-import type { TargetFormat } from '../types'
-import { formatBytes } from '../lib/format'
+import type { KeyboardEvent, RefObject } from "react";
+import type { TargetFormat } from "../types";
+import { formatBytes } from "../lib/format";
 
 type TargetOption = {
-  value: TargetFormat
-  label: string
-  hint: string
-}
+  value: TargetFormat;
+  label: string;
+  hint: string;
+};
 
 type UploadPanelProps = {
-  files: File[]
-  target: TargetFormat
-  targetOptions: TargetOption[]
-  backgroundColor: string
-  message: string
-  isDragging: boolean
-  isSubmitting: boolean
-  fileInputRef: RefObject<HTMLInputElement | null>
-  onAddFiles: (files: FileList | null) => void
-  onTargetChange: (target: TargetFormat) => void
-  onBackgroundColorChange: (color: string) => void
-  onDraggingChange: (isDragging: boolean) => void
-  onSubmit: () => void
-}
+  files: File[];
+  target: TargetFormat;
+  targetOptions: TargetOption[];
+  backgroundColor: string;
+  message: string;
+  isDragging: boolean;
+  isSubmitting: boolean;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  onAddFiles: (files: FileList | null) => void;
+  onTargetChange: (target: TargetFormat) => void;
+  onBackgroundColorChange: (color: string) => void;
+  onDraggingChange: (isDragging: boolean) => void;
+  onSubmit: () => void;
+};
 
 export function UploadPanel({
   files,
@@ -40,13 +40,13 @@ export function UploadPanel({
   onSubmit,
 }: UploadPanelProps) {
   function openFilePicker() {
-    fileInputRef.current?.click()
+    fileInputRef.current?.click();
   }
 
   function handleDropzoneKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      openFilePicker()
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openFilePicker();
     }
   }
 
@@ -54,8 +54,8 @@ export function UploadPanel({
     <form
       className="panel upload-panel"
       onSubmit={(event) => {
-        event.preventDefault()
-        onSubmit()
+        event.preventDefault();
+        onSubmit();
       }}
     >
       <div className="panel-header">
@@ -67,16 +67,16 @@ export function UploadPanel({
       </div>
 
       <div
-        className={`dropzone ${isDragging ? 'dragging' : ''}`}
+        className={`dropzone ${isDragging ? "dragging" : ""}`}
         onDragOver={(event) => {
-          event.preventDefault()
-          onDraggingChange(true)
+          event.preventDefault();
+          onDraggingChange(true);
         }}
         onDragLeave={() => onDraggingChange(false)}
         onDrop={(event) => {
-          event.preventDefault()
-          onDraggingChange(false)
-          onAddFiles(event.dataTransfer.files)
+          event.preventDefault();
+          onDraggingChange(false);
+          onAddFiles(event.dataTransfer.files);
         }}
         role="button"
         tabIndex={0}
@@ -98,7 +98,10 @@ export function UploadPanel({
       {files.length > 0 && (
         <div className="file-list">
           {files.map((file) => (
-            <div className="file-item" key={`${file.name}-${file.size}-${file.lastModified}`}>
+            <div
+              className="file-item"
+              key={`${file.name}-${file.size}-${file.lastModified}`}
+            >
               <span>{file.name}</span>
               <small>{formatBytes(file.size)}</small>
             </div>
@@ -108,7 +111,10 @@ export function UploadPanel({
 
       <div className="format-grid">
         {targetOptions.map((option) => (
-          <label className={target === option.value ? 'format active' : 'format'} key={option.value}>
+          <label
+            className={target === option.value ? "format active" : "format"}
+            key={option.value}
+          >
             <input
               type="radio"
               name="target_format"
@@ -127,15 +133,17 @@ export function UploadPanel({
         <input
           type="color"
           value={backgroundColor}
-          onChange={(event) => onBackgroundColorChange(event.currentTarget.value)}
+          onChange={(event) =>
+            onBackgroundColorChange(event.currentTarget.value)
+          }
         />
         <code>{backgroundColor}</code>
       </label>
 
       <button className="primary full" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? '요청 중...' : '변환 시작'}
+        {isSubmitting ? "요청 중..." : "변환 시작"}
       </button>
       {message && <p className="notice">{message}</p>}
     </form>
-  )
+  );
 }

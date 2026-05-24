@@ -1,9 +1,9 @@
-import type { Job } from '../types'
-import { JobCard } from './JobCard'
+import type { Job } from "../types";
+import { JobCard } from "./JobCard";
 
 type JobsPanelProps = {
-  jobs: Job[]
-}
+  jobs: Job[];
+};
 
 export function JobsPanel({ jobs }: JobsPanelProps) {
   return (
@@ -25,5 +25,5 @@ export function JobsPanel({ jobs }: JobsPanelProps) {
         </div>
       )}
     </section>
-  )
+  );
 }

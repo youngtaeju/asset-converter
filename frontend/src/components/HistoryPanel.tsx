@@ -1,10 +1,10 @@
-import { formatDate } from '../lib/format'
-import { statusLabels } from '../lib/job-status'
-import type { Job } from '../types'
+import { formatDate } from "../lib/format";
+import { statusLabels } from "../lib/job-status";
+import type { Job } from "../types";
 
 type HistoryPanelProps = {
-  history: Job[]
-}
+  history: Job[];
+};
 
 export function HistoryPanel({ history }: HistoryPanelProps) {
   return (
@@ -24,13 +24,13 @@ export function HistoryPanel({ history }: HistoryPanelProps) {
             <div className="history-item" key={job.id}>
               <span>{job.source_filename}</span>
               <small>
-                {job.input_format} → {job.target_format} · {statusLabels[job.status]} ·{' '}
-                {formatDate(job.created_at)}
+                {job.input_format} → {job.target_format} ·{" "}
+                {statusLabels[job.status]} · {formatDate(job.created_at)}
               </small>
             </div>
           ))}
         </div>
       )}
     </section>
-  )
+  );
 }

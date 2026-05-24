@@ -1,6 +1,6 @@
 type TopbarProps = {
-  onOpenHealth: () => void
-}
+  onOpenHealth: () => void;
+};
 
 export function Topbar({ onOpenHealth }: TopbarProps) {
   return (
@@ -10,5 +10,5 @@ export function Topbar({ onOpenHealth }: TopbarProps) {
         API 상태
       </button>
     </header>
-  )
+  );
 }

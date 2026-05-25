@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import type {
   ConversionOptions,
   ConversionPreset,
+  GifDither,
   GifMp4Options,
   GifMp4Preset,
+  GifToGifOptions,
   GifWebpOptions,
   JpegOptions,
   Job,
@@ -17,6 +19,7 @@ export type ConversionOptionState = {
   preset: ConversionPreset;
   gifWebpOptions: GifWebpOptions;
   gifMp4Options: GifMp4Options;
+  gifToGifOptions: GifToGifOptions;
   jpegOptions: JpegOptions;
   pngOptions: PngOptions;
   staticWebpOptions: StaticWebpOptions;
@@ -81,6 +84,15 @@ const gifMp4Presets: Record<
   quality: { fps: 24, crf: 20, preset: "slow" },
 };
 
+const gifToGifPresets: Record<
+  Exclude<ConversionPreset, "custom">,
+  GifToGifOptions
+> = {
+  balanced: { fps: 15, colors: 128, dither: "floyd_steinberg" },
+  smaller: { fps: 12, colors: 96, dither: "bayer" },
+  quality: { fps: 24, colors: 256, dither: "floyd_steinberg" },
+};
+
 const jpegPresets: Record<Exclude<ConversionPreset, "custom">, JpegOptions> = {
   balanced: { quality: 85, progressive: false, optimize: true },
   smaller: { quality: 70, progressive: true, optimize: true },
@@ -114,10 +126,17 @@ const mp4PresetOptions: Array<{ value: GifMp4Preset; label: string }> = [
   { value: "veryslow", label: "veryslow · 가장 느림" },
 ];
 
+const gifDitherOptions: Array<{ value: GifDither; label: string }> = [
+  { value: "none", label: "none · 패턴 없음" },
+  { value: "bayer", label: "bayer · 작은 파일" },
+  { value: "floyd_steinberg", label: "floyd_steinberg · 자연스러운 색" },
+];
+
 export const defaultOptionState: ConversionOptionState = {
   preset: "balanced",
   gifWebpOptions: gifWebpPresets.balanced,
   gifMp4Options: gifMp4Presets.balanced,
+  gifToGifOptions: gifToGifPresets.balanced,
   jpegOptions: jpegPresets.balanced,
   pngOptions: pngPresets.balanced,
   staticWebpOptions: staticWebpPresets.balanced,
@@ -136,6 +155,7 @@ export function isAdvancedConversion(
   sourceFormat: SourceFormat | string,
   target: TargetFormat | string,
 ) {
+  if (sourceFormat === "gif" && target === "gif") return true;
   if (sourceFormat === "gif" && target === "mp4") return true;
   return (
     target === "webp" ||
@@ -153,6 +173,7 @@ export function getActiveConversionOptions(
   if (!isAdvancedConversion(sourceFormat, target)) return undefined;
   if (sourceFormat === "gif" && target === "webp") return state.gifWebpOptions;
   if (sourceFormat === "gif" && target === "mp4") return state.gifMp4Options;
+  if (sourceFormat === "gif" && target === "gif") return state.gifToGifOptions;
   if (target === "webp") return state.staticWebpOptions;
   if (target === "png") return state.pngOptions;
   if (target === "jpg" || target === "jpeg") return state.jpegOptions;
@@ -196,6 +217,10 @@ function EditableConversionOptionsModal({
         sourceFormat === "gif" && target === "mp4"
           ? gifMp4Presets[preset]
           : current.gifMp4Options,
+      gifToGifOptions:
+        sourceFormat === "gif" && target === "gif"
+          ? gifToGifPresets[preset]
+          : current.gifToGifOptions,
       jpegOptions:
         target === "jpg" || target === "jpeg"
           ? jpegPresets[preset]
@@ -347,6 +372,14 @@ function renderControls(
       />
     );
   }
+  if (sourceFormat === "gif" && target === "gif") {
+    return (
+      <GifToGifControls
+        options={draft.gifToGifOptions}
+        onChange={(gifToGifOptions) => updateDraft({ gifToGifOptions })}
+      />
+    );
+  }
   if (target === "webp") {
     return (
       <StaticWebpControls
@@ -474,6 +507,60 @@ function GifMp4Controls({
         <small>
           느린 설정일수록 처리 시간은 늘고 파일 크기는 줄어들 수 있습니다.
         </small>
+      </label>
+    </div>
+  );
+}
+
+function GifToGifControls({
+  options,
+  onChange,
+}: {
+  options: GifToGifOptions;
+  onChange: (options: GifToGifOptions) => void;
+}) {
+  return (
+    <div className="advanced-control-grid">
+      <RangeControl
+        label="FPS"
+        value={options.fps}
+        min={1}
+        max={60}
+        unit="fps"
+        hint="낮추면 움직임은 덜 부드럽지만 용량이 줄어듭니다."
+        lowLabel="가볍게"
+        highLabel="부드럽게"
+        onChange={(value) => onChange({ ...options, fps: value })}
+      />
+      <RangeControl
+        label="Colors"
+        value={options.colors}
+        min={2}
+        max={256}
+        unit=""
+        hint="낮추면 용량은 줄지만 색 표현이 단순해질 수 있습니다."
+        lowLabel="작게"
+        highLabel="풍부하게"
+        onChange={(value) => onChange({ ...options, colors: value })}
+      />
+      <label className="select-control option-card">
+        <span>Dither</span>
+        <select
+          value={options.dither}
+          onChange={(event) =>
+            onChange({
+              ...options,
+              dither: event.currentTarget.value as GifDither,
+            })
+          }
+        >
+          {gifDitherOptions.map((dither) => (
+            <option value={dither.value} key={dither.value}>
+              {dither.label}
+            </option>
+          ))}
+        </select>
+        <small>제한된 색상으로 바꿀 때 계단 현상을 줄이는 방식입니다.</small>
       </label>
     </div>
   );
@@ -668,6 +755,17 @@ function getReadonlyOptionRows(job: Job) {
       { label: "FPS", value: `${options.fps}` },
       { label: "CRF", value: `${options.crf}` },
       { label: "Preset", value: options.preset },
+    ];
+  }
+  if (
+    job.input_format === "gif" &&
+    job.target_format === "gif" &&
+    "colors" in options
+  ) {
+    return [
+      { label: "FPS", value: `${options.fps}` },
+      { label: "Colors", value: `${options.colors}` },
+      { label: "Dither", value: options.dither },
     ];
   }
   if (

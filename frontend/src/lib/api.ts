@@ -15,12 +15,14 @@ async function fetchJson<T>(
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const errorCode = data?.error?.code;
+    const apiMessage = data?.error?.message;
     const message =
       errorCode === "MIXED_INPUT_FORMATS"
         ? "동일한 확장자의 파일만 함께 변환할 수 있습니다."
-        : (data?.error?.message ??
-          data?.detail ??
-          "요청을 처리하지 못했습니다.");
+        : errorCode === "UNSUPPORTED_CONVERSION" &&
+            apiMessage === "Animated WebP optimization is not supported yet."
+          ? "Animated WebP 최적화는 아직 지원하지 않습니다."
+          : (apiMessage ?? data?.detail ?? "요청을 처리하지 못했습니다.");
     throw new Error(
       Array.isArray(message) ? "입력값을 확인해 주세요." : message,
     );

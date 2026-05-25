@@ -46,6 +46,7 @@ const targetOptionsBySource: Record<
   gif: [
     { value: "webp", label: "WebP" },
     { value: "mp4", label: "MP4" },
+    { value: "gif", label: "GIF" },
     { value: "png", label: "PNG" },
     { value: "jpg", label: "JPG" },
   ],
@@ -58,6 +59,7 @@ const targetOptionsBySource: Record<
     { value: "jpg", label: "JPG" },
   ],
   webp: [
+    { value: "webp", label: "WebP" },
     { value: "png", label: "PNG" },
     { value: "jpg", label: "JPG" },
   ],

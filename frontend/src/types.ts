@@ -5,7 +5,7 @@ export type JobStatus =
   | "failed"
   | "expired";
 export type SourceFormat = "gif" | "jpg" | "png" | "webp";
-export type TargetFormat = "webp" | "mp4" | "jpg" | "jpeg" | "png";
+export type TargetFormat = "webp" | "mp4" | "jpg" | "jpeg" | "png" | "gif";
 
 export type ConversionPreset = "balanced" | "smaller" | "quality" | "custom";
 
@@ -33,6 +33,14 @@ export type GifMp4Options = {
   preset: GifMp4Preset;
 };
 
+export type GifDither = "none" | "bayer" | "floyd_steinberg";
+
+export type GifToGifOptions = {
+  fps: number;
+  colors: number;
+  dither: GifDither;
+};
+
 export type JpegOptions = {
   quality: number;
   progressive: boolean;
@@ -53,6 +61,7 @@ export type StaticWebpOptions = {
 export type ConversionOptions =
   | GifWebpOptions
   | GifMp4Options
+  | GifToGifOptions
   | JpegOptions
   | PngOptions
   | StaticWebpOptions;

@@ -124,6 +124,31 @@ def test_batch_rejects_mixed_input_formats_before_creating_jobs(tmp_path, monkey
     assert client.get("/api/history").json()["jobs"] == []
 
 
+def test_static_conversion_options_are_stored(tmp_path, monkeypatch):
+    configure_runtime(monkeypatch, tmp_path)
+    img = tmp_path / "sample.png"
+    make_png(img)
+    client = TestClient(app)
+
+    with img.open("rb") as png_file:
+        response = client.post(
+            "/api/jobs",
+            files={"file": ("sample.png", png_file, "image/png")},
+            data={
+                "target_format": "webp",
+                "conversion_options": '{"quality":70,"lossless":false,"method":6}',
+            },
+        )
+
+    assert response.status_code == 202
+    body = response.json()["job"]
+    assert body["conversion_options"] == {
+        "quality": 70,
+        "lossless": False,
+        "method": 6,
+    }
+
+
 def test_invalid_conversion_options_are_rejected(tmp_path, monkeypatch):
     configure_runtime(monkeypatch, tmp_path)
     gif = tmp_path / "sample.gif"

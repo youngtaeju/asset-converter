@@ -6,7 +6,13 @@ from time import monotonic
 from PIL import Image, ImageSequence, UnidentifiedImageError
 
 from app.config import Settings, get_settings
-from app.conversion.options import GifToMp4Options, GifToWebpOptions
+from app.conversion.options import (
+    GifToMp4Options,
+    GifToWebpOptions,
+    JpegOptions,
+    PngOptions,
+    StaticWebpOptions,
+)
 from app.conversion.policy import validate_conversion
 from app.models import ConversionTarget
 
@@ -130,7 +136,7 @@ def convert_asset(
             settings.ffmpeg_timeout_seconds,
         )
     else:
-        _convert_with_pillow(source, dest, target, background_color)
+        _convert_with_pillow(source, dest, target, background_color, conversion_options)
     duration_ms = int((monotonic() - start) * 1000)
     return ConversionResult(dest, dest.stat().st_size, duration_ms, warnings)
 
@@ -157,6 +163,7 @@ def _convert_with_pillow(
     dest: Path,
     target: ConversionTarget,
     background_color: str,
+    conversion_options: dict | None = None,
 ) -> None:
     try:
         with Image.open(source) as img:
@@ -172,6 +179,7 @@ def _convert_with_pillow(
         output_format = "JPEG"
 
     if output_format == "JPEG":
+        jpeg_options = JpegOptions.model_validate(conversion_options or {})
         if frame.mode in {"RGBA", "LA", "P"}:
             frame = frame.convert("RGBA")
             background = Image.new("RGBA", frame.size, background_color)
@@ -179,7 +187,34 @@ def _convert_with_pillow(
             frame = background.convert("RGB")
         else:
             frame = frame.convert("RGB")
-        frame.save(dest, output_format, quality=85, optimize=True)
+        frame.save(
+            dest,
+            output_format,
+            quality=jpeg_options.quality,
+            progressive=jpeg_options.progressive,
+            optimize=jpeg_options.optimize,
+        )
+    elif output_format == "PNG":
+        png_options = PngOptions.model_validate(conversion_options or {})
+        if frame.mode == "P":
+            frame = frame.convert("RGBA")
+        frame.save(
+            dest,
+            output_format,
+            compress_level=png_options.compress_level,
+            optimize=png_options.optimize,
+        )
+    elif output_format == "WEBP":
+        webp_options = StaticWebpOptions.model_validate(conversion_options or {})
+        if frame.mode == "P":
+            frame = frame.convert("RGBA")
+        frame.save(
+            dest,
+            output_format,
+            quality=webp_options.quality,
+            lossless=webp_options.lossless,
+            method=webp_options.method,
+        )
     else:
         if frame.mode == "P":
             frame = frame.convert("RGBA")

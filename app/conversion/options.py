@@ -36,6 +36,29 @@ class GifToMp4Options(BaseModel):
     preset: Mp4EncodingPreset = Mp4EncodingPreset.slow
 
 
+class JpegOptions(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    quality: int = Field(default=85, ge=1, le=100)
+    progressive: bool = False
+    optimize: bool = True
+
+
+class PngOptions(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    compress_level: int = Field(default=6, ge=0, le=9)
+    optimize: bool = True
+
+
+class StaticWebpOptions(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    quality: int = Field(default=80, ge=1, le=100)
+    lossless: bool = False
+    method: int = Field(default=4, ge=0, le=6)
+
+
 class ConversionOptionsError(ValueError):
     pass
 
@@ -60,19 +83,20 @@ def normalize_conversion_options(
     if not options:
         return {}
 
-    if input_format != "gif":
-        raise ConversionOptionsError(
-            "Advanced conversion options are supported for GIF inputs only."
-        )
-
     try:
-        if target == ConversionTarget.webp:
-            return GifToWebpOptions.model_validate(options).model_dump(mode="json")
-        if target == ConversionTarget.mp4:
+        if input_format == "gif" and target == ConversionTarget.mp4:
             return GifToMp4Options.model_validate(options).model_dump(mode="json")
+        if input_format == "gif" and target == ConversionTarget.webp:
+            return GifToWebpOptions.model_validate(options).model_dump(mode="json")
+        if target in {ConversionTarget.jpg, ConversionTarget.jpeg}:
+            return JpegOptions.model_validate(options).model_dump(mode="json")
+        if target == ConversionTarget.png:
+            return PngOptions.model_validate(options).model_dump(mode="json")
+        if target == ConversionTarget.webp:
+            return StaticWebpOptions.model_validate(options).model_dump(mode="json")
     except ValidationError as exc:
         raise ConversionOptionsError("Conversion options are outside the supported range.") from exc
 
     raise ConversionOptionsError(
-        "Advanced conversion options are supported for GIF to WebP or MP4 only."
+        "Advanced conversion options are not supported for this conversion."
     )

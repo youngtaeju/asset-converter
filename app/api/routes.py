@@ -7,6 +7,11 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, Response, Upl
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.config import get_settings
+from app.conversion.options import (
+    ConversionOptionsError,
+    normalize_conversion_options,
+    parse_conversion_options,
+)
 from app.conversion.policy import validate_conversion
 from app.db.database import JobStore, to_iso, utc_now
 from app.jobs.tasks import convert_job
@@ -22,7 +27,7 @@ from app.models import (
     RejectedFile,
 )
 from app.session import ClientSession, apply_session_cookie, read_or_create_session
-from app.storage.files import UploadRejected, download_filename_for, save_upload
+from app.storage.files import UploadRejected, detect_format, download_filename_for, save_upload
 
 router = APIRouter(prefix="/api")
 
@@ -59,6 +64,7 @@ def to_job_response(row: dict) -> JobResponse:
         finished_at=row.get("finished_at"),
         expires_at=expires_at,
         download_available=download_available,
+        conversion_options=row.get("conversion_options", {}),
     )
 
 
@@ -72,21 +78,56 @@ def error(code: str, message: str, status_code: int, details: dict | None = None
     )
 
 
+def upload_header_format(file: UploadFile) -> str | None:
+    position = file.file.tell()
+    header = file.file.read(32)
+    file.file.seek(position)
+    return detect_format(header)
+
+
+def mixed_input_format_error(files: list[UploadFile]) -> JSONResponse | None:
+    formats = sorted({fmt for file in files if (fmt := upload_header_format(file))})
+    if len(formats) <= 1:
+        return None
+    return error(
+        "MIXED_INPUT_FORMATS",
+        "Batch conversion requires files with the same input format.",
+        400,
+        {"input_formats": formats},
+    )
+
+
 def create_job_from_upload(
     file: UploadFile,
     target_format: ConversionTarget,
     owner_session_hash: str,
     preset: str = "default",
     background_color: str = "#ffffff",
+    conversion_options: str | None = None,
 ) -> JobResponse:
     settings = get_settings()
+    try:
+        parsed_options = parse_conversion_options(conversion_options)
+    except ConversionOptionsError as exc:
+        raise UploadRejected("INVALID_CONVERSION_OPTIONS", str(exc)) from exc
+
     job_id, source_path, input_format, size = save_upload(file, settings)
     try:
         warnings = validate_conversion(input_format, target_format)
+        normalized_options = normalize_conversion_options(
+            input_format,
+            target_format,
+            parsed_options,
+        )
     except ValueError as exc:
         source_path.unlink(missing_ok=True)
         source_path.parent.rmdir()
-        raise UploadRejected("UNSUPPORTED_CONVERSION", str(exc)) from exc
+        code = (
+            "INVALID_CONVERSION_OPTIONS"
+            if isinstance(exc, ConversionOptionsError)
+            else "UNSUPPORTED_CONVERSION"
+        )
+        raise UploadRejected(code, str(exc)) from exc
 
     now = utc_now()
     expires_at = now + timedelta(hours=settings.ttl_hours)
@@ -104,6 +145,7 @@ def create_job_from_upload(
             "source_path": str(source_path),
             "preset": preset,
             "background_color": background_color,
+            "conversion_options": normalized_options,
             "owner_session_hash": owner_session_hash,
         }
     )
@@ -135,6 +177,7 @@ def create_job(
     target_format: Annotated[ConversionTarget, Form()],
     preset: Annotated[str, Form()] = "default",
     background_color: Annotated[str, Form()] = "#ffffff",
+    conversion_options: Annotated[str, Form()] = "",
 ) -> JobEnvelope | JSONResponse:
     settings = get_settings()
     session = read_or_create_session(request, settings)
@@ -146,6 +189,7 @@ def create_job(
             session.token_hash,
             preset,
             background_color,
+            conversion_options,
         )
         return JobEnvelope(job=job)
     except UploadRejected as exc:
@@ -162,12 +206,17 @@ def create_batch_jobs(
     target_format: Annotated[ConversionTarget, Form()],
     preset: Annotated[str, Form()] = "default",
     background_color: Annotated[str, Form()] = "#ffffff",
-) -> BatchResponse:
+    conversion_options: Annotated[str, Form()] = "",
+) -> BatchResponse | JSONResponse:
     settings = get_settings()
     session = read_or_create_session(request, settings)
     apply_session_cookie(response, session, settings)
     if len(files) > settings.max_batch_files:
         raise HTTPException(status_code=413, detail="Too many files in batch.")
+    format_error = mixed_input_format_error(files)
+    if format_error:
+        apply_session_cookie(format_error, session, settings)
+        return format_error
     jobs: list[JobResponse] = []
     rejected: list[RejectedFile] = []
     for file in files:
@@ -179,6 +228,7 @@ def create_batch_jobs(
                     session.token_hash,
                     preset,
                     background_color,
+                    conversion_options,
                 )
             )
         except UploadRejected as exc:

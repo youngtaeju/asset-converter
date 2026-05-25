@@ -35,6 +35,7 @@ def convert_job(self, job_id: str) -> dict:
             ConversionTarget(row["target_format"]),
             row.get("background_color") or "#ffffff",
             get_settings(),
+            row.get("conversion_options") or None,
         )
         updated = store.transition(
             job_id,

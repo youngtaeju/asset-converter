@@ -46,5 +46,34 @@ def test_ffmpeg_webp_command_contains_required_flags(tmp_path):
     assert "fps=24" in joined
 
 
+def test_ffmpeg_mp4_command_uses_custom_options(tmp_path):
+    cmd = gif_to_mp4_command(
+        tmp_path / "in.gif",
+        tmp_path / "out.mp4",
+        {"fps": 12, "crf": 32, "preset": "medium"},
+    )
+    joined = " ".join(cmd)
+
+    assert "fps=12" in joined
+    assert cmd[cmd.index("-crf") + 1] == "32"
+    assert cmd[cmd.index("-preset") + 1] == "medium"
+
+
+def test_ffmpeg_webp_command_uses_custom_options(tmp_path):
+    cmd = gif_to_webp_command(
+        tmp_path / "in.gif",
+        tmp_path / "out.webp",
+        {"fps": 12, "quality": 62, "compression_level": 5, "lossless": True},
+    )
+    joined = " ".join(cmd)
+
+    assert "fps=12" in joined
+    assert "format=yuva420p" in joined
+    assert cmd[cmd.index("-lossless") + 1] == "1"
+    assert cmd[cmd.index("-compression_level") + 1] == "5"
+    assert cmd[cmd.index("-q:v") + 1] == "62"
+    assert "-an" in cmd
+
+
 def test_stderr_sanitized():
     assert "\x00" not in sanitize_stderr("bad\x00\n error")

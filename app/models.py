@@ -60,6 +60,7 @@ class JobResponse(BaseModel):
     finished_at: datetime | None = None
     expires_at: datetime | None = None
     download_available: bool = False
+    conversion_options: dict[str, Any] = Field(default_factory=dict)
 
 
 class JobEnvelope(BaseModel):

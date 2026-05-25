@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   result_path TEXT,
   preset TEXT NOT NULL DEFAULT 'default',
   background_color TEXT NOT NULL DEFAULT '#ffffff',
+  conversion_options_json TEXT NOT NULL DEFAULT '{}',
   owner_session_hash TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC);
@@ -78,6 +79,11 @@ class JobStore:
             }
             if "owner_session_hash" not in columns:
                 conn.execute("ALTER TABLE jobs ADD COLUMN owner_session_hash TEXT")
+            if "conversion_options_json" not in columns:
+                conn.execute(
+                    "ALTER TABLE jobs ADD COLUMN "
+                    "conversion_options_json TEXT NOT NULL DEFAULT '{}'"
+                )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_jobs_owner_session_hash "
                 "ON jobs(owner_session_hash)"
@@ -90,8 +96,8 @@ class JobStore:
                 INSERT INTO jobs (
                     id, status, source_filename, input_format, target_format, input_size_bytes,
                     warnings_json, created_at, expires_at, source_path, preset, background_color,
-                    owner_session_hash
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    conversion_options_json, owner_session_hash
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     job["id"],
@@ -106,6 +112,7 @@ class JobStore:
                     job["source_path"],
                     job.get("preset", "default"),
                     job.get("background_color", "#ffffff"),
+                    json.dumps(job.get("conversion_options", {})),
                     job.get("owner_session_hash"),
                 ),
             )
@@ -191,4 +198,7 @@ class JobStore:
     def _row_to_dict(self, row: sqlite3.Row) -> dict[str, Any]:
         data = dict(row)
         data["warnings"] = json.loads(data.pop("warnings_json") or "[]")
+        data["conversion_options"] = json.loads(
+            data.pop("conversion_options_json", None) or "{}"
+        )
         return data

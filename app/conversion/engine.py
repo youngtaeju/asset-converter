@@ -6,6 +6,7 @@ from time import monotonic
 from PIL import Image, ImageSequence, UnidentifiedImageError
 
 from app.config import Settings, get_settings
+from app.conversion.options import GifToMp4Options, GifToWebpOptions
 from app.conversion.policy import validate_conversion
 from app.models import ConversionTarget
 
@@ -23,20 +24,34 @@ def sanitize_stderr(stderr: str, max_len: int = 1000) -> str:
     return cleaned[:max_len]
 
 
-def gif_to_mp4_command(source: Path, dest: Path) -> list[str]:
+def gif_to_mp4_command(
+    source: Path,
+    dest: Path,
+    options: dict | None = None,
+) -> list[str]:
+    if not options:
+        fps = 24
+        crf = 26
+        preset = "slow"
+    else:
+        normalized = GifToMp4Options.model_validate(options)
+        fps = normalized.fps
+        crf = normalized.crf
+        preset = normalized.preset.value
+
     return [
         "ffmpeg",
         "-y",
         "-i",
         str(source),
         "-vf",
-        "fps=24,scale=trunc(iw/2)*2:trunc(ih/2)*2",
+        f"fps={fps},scale=trunc(iw/2)*2:trunc(ih/2)*2",
         "-c:v",
         "libx264",
         "-crf",
-        "26",
+        str(crf),
         "-preset",
-        "slow",
+        preset,
         "-pix_fmt",
         "yuv420p",
         "-movflags",
@@ -45,22 +60,49 @@ def gif_to_mp4_command(source: Path, dest: Path) -> list[str]:
     ]
 
 
-def gif_to_webp_command(source: Path, dest: Path) -> list[str]:
+def gif_to_webp_command(
+    source: Path,
+    dest: Path,
+    options: dict | None = None,
+) -> list[str]:
+    if not options:
+        return [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(source),
+            "-vf",
+            "fps=24,scale=trunc(iw/2)*2:trunc(ih/2)*2",
+            "-c:v",
+            "libwebp",
+            "-quality",
+            "75",
+            "-pix_fmt",
+            "yuva420p",
+            "-loop",
+            "0",
+            str(dest),
+        ]
+
+    normalized = GifToWebpOptions.model_validate(options)
     return [
         "ffmpeg",
         "-y",
         "-i",
         str(source),
         "-vf",
-        "fps=24,scale=trunc(iw/2)*2:trunc(ih/2)*2",
-        "-c:v",
-        "libwebp",
-        "-quality",
-        "75",
-        "-pix_fmt",
-        "yuva420p",
+        f"scale=trunc(iw/2)*2:trunc(ih/2)*2,fps={normalized.fps},format=yuva420p",
         "-loop",
         "0",
+        "-c:v",
+        "libwebp",
+        "-lossless",
+        "1" if normalized.lossless else "0",
+        "-compression_level",
+        str(normalized.compression_level),
+        "-q:v",
+        str(normalized.quality),
+        "-an",
         str(dest),
     ]
 
@@ -72,14 +114,21 @@ def convert_asset(
     target: ConversionTarget,
     background_color: str = "#ffffff",
     settings: Settings | None = None,
+    conversion_options: dict | None = None,
 ) -> ConversionResult:
     settings = settings or get_settings()
     warnings = validate_conversion(input_format, target)
     start = monotonic()
     if input_format == "gif" and target == ConversionTarget.mp4:
-        _run_ffmpeg(gif_to_mp4_command(source, dest), settings.ffmpeg_timeout_seconds)
+        _run_ffmpeg(
+            gif_to_mp4_command(source, dest, conversion_options),
+            settings.ffmpeg_timeout_seconds,
+        )
     elif input_format == "gif" and target == ConversionTarget.webp:
-        _run_ffmpeg(gif_to_webp_command(source, dest), settings.ffmpeg_timeout_seconds)
+        _run_ffmpeg(
+            gif_to_webp_command(source, dest, conversion_options),
+            settings.ffmpeg_timeout_seconds,
+        )
     else:
         _convert_with_pillow(source, dest, target, background_color)
     duration_ms = int((monotonic() - start) * 1000)

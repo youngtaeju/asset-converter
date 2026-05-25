@@ -5,23 +5,29 @@ import type {
   GifMp4Options,
   GifMp4Preset,
   GifWebpOptions,
+  JpegOptions,
   Job,
+  PngOptions,
   SourceFormat,
+  StaticWebpOptions,
   TargetFormat,
 } from "../types";
+
+export type ConversionOptionState = {
+  preset: ConversionPreset;
+  gifWebpOptions: GifWebpOptions;
+  gifMp4Options: GifMp4Options;
+  jpegOptions: JpegOptions;
+  pngOptions: PngOptions;
+  staticWebpOptions: StaticWebpOptions;
+};
 
 type EditableOptions = {
   mode: "edit";
   sourceFormat: SourceFormat;
   target: TargetFormat;
-  conversionPreset: ConversionPreset;
-  gifWebpOptions: GifWebpOptions;
-  gifMp4Options: GifMp4Options;
-  onApply: (values: {
-    preset: ConversionPreset;
-    gifWebpOptions: GifWebpOptions;
-    gifMp4Options: GifMp4Options;
-  }) => void;
+  optionState: ConversionOptionState;
+  onApply: (values: ConversionOptionState) => void;
   onClose: () => void;
 };
 
@@ -44,7 +50,7 @@ const presetOptions: PresetOption[] = [
   {
     value: "smaller",
     label: "용량 줄이기",
-    description: "fps/품질을 낮춰 작게",
+    description: "품질/압축을 조정해 작게",
   },
   { value: "quality", label: "품질 유지", description: "선명도 우선" },
   { value: "custom", label: "사용자 지정", description: "세부 값을 직접 조정" },
@@ -75,6 +81,27 @@ const gifMp4Presets: Record<
   quality: { fps: 24, crf: 20, preset: "slow" },
 };
 
+const jpegPresets: Record<Exclude<ConversionPreset, "custom">, JpegOptions> = {
+  balanced: { quality: 85, progressive: false, optimize: true },
+  smaller: { quality: 70, progressive: true, optimize: true },
+  quality: { quality: 95, progressive: false, optimize: true },
+};
+
+const pngPresets: Record<Exclude<ConversionPreset, "custom">, PngOptions> = {
+  balanced: { compress_level: 6, optimize: true },
+  smaller: { compress_level: 9, optimize: true },
+  quality: { compress_level: 6, optimize: true },
+};
+
+const staticWebpPresets: Record<
+  Exclude<ConversionPreset, "custom">,
+  StaticWebpOptions
+> = {
+  balanced: { quality: 80, lossless: false, method: 4 },
+  smaller: { quality: 65, lossless: false, method: 6 },
+  quality: { quality: 92, lossless: false, method: 4 },
+};
+
 const mp4PresetOptions: Array<{ value: GifMp4Preset; label: string }> = [
   { value: "ultrafast", label: "ultrafast · 매우 빠름 / 큰 파일" },
   { value: "superfast", label: "superfast" },
@@ -87,26 +114,49 @@ const mp4PresetOptions: Array<{ value: GifMp4Preset; label: string }> = [
   { value: "veryslow", label: "veryslow · 가장 느림" },
 ];
 
+export const defaultOptionState: ConversionOptionState = {
+  preset: "balanced",
+  gifWebpOptions: gifWebpPresets.balanced,
+  gifMp4Options: gifMp4Presets.balanced,
+  jpegOptions: jpegPresets.balanced,
+  pngOptions: pngPresets.balanced,
+  staticWebpOptions: staticWebpPresets.balanced,
+};
+
 export function getConversionOptionsSummary(
   sourceFormat: SourceFormat,
   target: TargetFormat,
   preset: ConversionPreset,
 ) {
-  if (!isGifAdvancedTarget(sourceFormat, target)) return "기본 설정";
+  if (!isAdvancedConversion(sourceFormat, target)) return "기본 설정";
   return presetLabels[preset];
 }
 
-export function isGifAdvancedTarget(
+export function isAdvancedConversion(
   sourceFormat: SourceFormat | string,
   target: TargetFormat | string,
 ) {
-  return sourceFormat === "gif" && (target === "webp" || target === "mp4");
+  if (sourceFormat === "gif" && target === "mp4") return true;
+  return (
+    target === "webp" ||
+    target === "jpg" ||
+    target === "jpeg" ||
+    target === "png"
+  );
 }
 
-export function getPresetOptionsForTarget(target: TargetFormat) {
-  if (target === "webp") return gifWebpPresets;
-  if (target === "mp4") return gifMp4Presets;
-  return null;
+export function getActiveConversionOptions(
+  sourceFormat: SourceFormat,
+  target: TargetFormat,
+  state: ConversionOptionState,
+): ConversionOptions | undefined {
+  if (!isAdvancedConversion(sourceFormat, target)) return undefined;
+  if (sourceFormat === "gif" && target === "webp") return state.gifWebpOptions;
+  if (sourceFormat === "gif" && target === "mp4") return state.gifMp4Options;
+  if (target === "webp") return state.staticWebpOptions;
+  if (target === "png") return state.pngOptions;
+  if (target === "jpg" || target === "jpeg") return state.jpegOptions;
+  return undefined;
 }
 
 export function ConversionOptionsModal(props: ConversionOptionsModalProps) {
@@ -119,38 +169,47 @@ export function ConversionOptionsModal(props: ConversionOptionsModalProps) {
 function EditableConversionOptionsModal({
   sourceFormat,
   target,
-  conversionPreset,
-  gifWebpOptions,
-  gifMp4Options,
+  optionState,
   onApply,
   onClose,
 }: EditableOptions) {
-  const [draftPreset, setDraftPreset] = useState(conversionPreset);
-  const [draftWebpOptions, setDraftWebpOptions] = useState(gifWebpOptions);
-  const [draftMp4Options, setDraftMp4Options] = useState(gifMp4Options);
-  const canEdit = isGifAdvancedTarget(sourceFormat, target);
+  const [draft, setDraft] = useState<ConversionOptionState>(optionState);
+  const canEdit = isAdvancedConversion(sourceFormat, target);
 
   useEffect(() => {
-    setDraftPreset(conversionPreset);
-    setDraftWebpOptions(gifWebpOptions);
-    setDraftMp4Options(gifMp4Options);
-  }, [conversionPreset, gifMp4Options, gifWebpOptions]);
+    setDraft(optionState);
+  }, [optionState]);
 
   function applyPreset(preset: ConversionPreset) {
-    setDraftPreset(preset);
-    if (preset === "custom") return;
-    if (target === "webp") setDraftWebpOptions(gifWebpPresets[preset]);
-    if (target === "mp4") setDraftMp4Options(gifMp4Presets[preset]);
+    if (preset === "custom") {
+      setDraft((current) => ({ ...current, preset }));
+      return;
+    }
+    setDraft((current) => ({
+      ...current,
+      preset,
+      gifWebpOptions:
+        sourceFormat === "gif" && target === "webp"
+          ? gifWebpPresets[preset]
+          : current.gifWebpOptions,
+      gifMp4Options:
+        sourceFormat === "gif" && target === "mp4"
+          ? gifMp4Presets[preset]
+          : current.gifMp4Options,
+      jpegOptions:
+        target === "jpg" || target === "jpeg"
+          ? jpegPresets[preset]
+          : current.jpegOptions,
+      pngOptions: target === "png" ? pngPresets[preset] : current.pngOptions,
+      staticWebpOptions:
+        sourceFormat !== "gif" && target === "webp"
+          ? staticWebpPresets[preset]
+          : current.staticWebpOptions,
+    }));
   }
 
-  function updateWebpOptions(options: GifWebpOptions) {
-    setDraftWebpOptions(options);
-    setDraftPreset("custom");
-  }
-
-  function updateMp4Options(options: GifMp4Options) {
-    setDraftMp4Options(options);
-    setDraftPreset("custom");
+  function updateDraft(patch: Partial<ConversionOptionState>) {
+    setDraft((current) => ({ ...current, ...patch, preset: "custom" }));
   }
 
   return (
@@ -180,7 +239,7 @@ function EditableConversionOptionsModal({
               {presetOptions.map((preset) => (
                 <button
                   className={
-                    draftPreset === preset.value
+                    draft.preset === preset.value
                       ? "preset-card active"
                       : "preset-card"
                   }
@@ -194,17 +253,7 @@ function EditableConversionOptionsModal({
               ))}
             </div>
 
-            {target === "webp" ? (
-              <GifWebpControls
-                options={draftWebpOptions}
-                onChange={updateWebpOptions}
-              />
-            ) : (
-              <GifMp4Controls
-                options={draftMp4Options}
-                onChange={updateMp4Options}
-              />
-            )}
+            {renderControls(sourceFormat, target, draft, updateDraft)}
           </div>
         ) : (
           <p className="option-empty">
@@ -220,11 +269,7 @@ function EditableConversionOptionsModal({
             className="primary"
             type="button"
             onClick={() => {
-              onApply({
-                preset: draftPreset,
-                gifWebpOptions: draftWebpOptions,
-                gifMp4Options: draftMp4Options,
-              });
+              onApply(draft);
               onClose();
             }}
           >
@@ -237,10 +282,7 @@ function EditableConversionOptionsModal({
 }
 
 function ReadonlyConversionOptionsModal({ job, onClose }: ReadonlyOptions) {
-  const rows = useMemo(
-    () => getReadonlyOptionRows(job.conversion_options),
-    [job.conversion_options],
-  );
+  const rows = useMemo(() => getReadonlyOptionRows(job), [job]);
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -280,6 +322,52 @@ function ReadonlyConversionOptionsModal({ job, onClose }: ReadonlyOptions) {
         )}
       </section>
     </div>
+  );
+}
+
+function renderControls(
+  sourceFormat: SourceFormat,
+  target: TargetFormat,
+  draft: ConversionOptionState,
+  updateDraft: (patch: Partial<ConversionOptionState>) => void,
+) {
+  if (sourceFormat === "gif" && target === "webp") {
+    return (
+      <GifWebpControls
+        options={draft.gifWebpOptions}
+        onChange={(gifWebpOptions) => updateDraft({ gifWebpOptions })}
+      />
+    );
+  }
+  if (sourceFormat === "gif" && target === "mp4") {
+    return (
+      <GifMp4Controls
+        options={draft.gifMp4Options}
+        onChange={(gifMp4Options) => updateDraft({ gifMp4Options })}
+      />
+    );
+  }
+  if (target === "webp") {
+    return (
+      <StaticWebpControls
+        options={draft.staticWebpOptions}
+        onChange={(staticWebpOptions) => updateDraft({ staticWebpOptions })}
+      />
+    );
+  }
+  if (target === "png") {
+    return (
+      <PngControls
+        options={draft.pngOptions}
+        onChange={(pngOptions) => updateDraft({ pngOptions })}
+      />
+    );
+  }
+  return (
+    <JpegControls
+      options={draft.jpegOptions}
+      onChange={(jpegOptions) => updateDraft({ jpegOptions })}
+    />
   );
 }
 
@@ -325,19 +413,12 @@ function GifWebpControls({
         highLabel="작게"
         onChange={(value) => onChange({ ...options, compression_level: value })}
       />
-      <label className="switch-control">
-        <input
-          type="checkbox"
-          checked={options.lossless}
-          onChange={(event) =>
-            onChange({ ...options, lossless: event.currentTarget.checked })
-          }
-        />
-        <span>
-          <strong>Lossless</strong>
-          <small>품질 손실은 줄지만 용량이 커질 수 있습니다.</small>
-        </span>
-      </label>
+      <SwitchControl
+        label="Lossless"
+        checked={options.lossless}
+        hint="품질 손실은 줄지만 용량이 커질 수 있습니다."
+        onChange={(lossless) => onChange({ ...options, lossless })}
+      />
     </div>
   );
 }
@@ -398,6 +479,113 @@ function GifMp4Controls({
   );
 }
 
+function StaticWebpControls({
+  options,
+  onChange,
+}: {
+  options: StaticWebpOptions;
+  onChange: (options: StaticWebpOptions) => void;
+}) {
+  return (
+    <div className="advanced-control-grid">
+      <RangeControl
+        label="Quality"
+        value={options.quality}
+        min={1}
+        max={100}
+        unit=""
+        hint="높을수록 선명하지만 파일 크기가 커질 수 있습니다."
+        lowLabel="작게"
+        highLabel="선명하게"
+        onChange={(quality) => onChange({ ...options, quality })}
+      />
+      <RangeControl
+        label="Method"
+        value={options.method}
+        min={0}
+        max={6}
+        unit=""
+        hint="높을수록 처리 시간은 늘고 파일 크기는 줄어들 수 있습니다."
+        lowLabel="빠르게"
+        highLabel="작게"
+        onChange={(method) => onChange({ ...options, method })}
+      />
+      <SwitchControl
+        label="Lossless"
+        checked={options.lossless}
+        hint="품질 손실은 줄지만 용량이 커질 수 있습니다."
+        onChange={(lossless) => onChange({ ...options, lossless })}
+      />
+    </div>
+  );
+}
+
+function JpegControls({
+  options,
+  onChange,
+}: {
+  options: JpegOptions;
+  onChange: (options: JpegOptions) => void;
+}) {
+  return (
+    <div className="advanced-control-grid">
+      <RangeControl
+        label="Quality"
+        value={options.quality}
+        min={1}
+        max={100}
+        unit=""
+        hint="높을수록 선명하지만 파일 크기가 커질 수 있습니다."
+        lowLabel="작게"
+        highLabel="선명하게"
+        onChange={(quality) => onChange({ ...options, quality })}
+      />
+      <SwitchControl
+        label="Progressive"
+        checked={options.progressive}
+        hint="이미지가 점진적으로 표시되도록 저장합니다."
+        onChange={(progressive) => onChange({ ...options, progressive })}
+      />
+      <SwitchControl
+        label="Optimize"
+        checked={options.optimize}
+        hint="추가 최적화를 적용해 파일 크기를 줄입니다."
+        onChange={(optimize) => onChange({ ...options, optimize })}
+      />
+    </div>
+  );
+}
+
+function PngControls({
+  options,
+  onChange,
+}: {
+  options: PngOptions;
+  onChange: (options: PngOptions) => void;
+}) {
+  return (
+    <div className="advanced-control-grid">
+      <RangeControl
+        label="Compress Level"
+        value={options.compress_level}
+        min={0}
+        max={9}
+        unit=""
+        hint="높을수록 처리 시간은 늘고 파일 크기는 줄어들 수 있습니다."
+        lowLabel="빠르게"
+        highLabel="작게"
+        onChange={(compress_level) => onChange({ ...options, compress_level })}
+      />
+      <SwitchControl
+        label="Optimize"
+        checked={options.optimize}
+        hint="추가 최적화를 적용해 파일 크기를 줄입니다."
+        onChange={(optimize) => onChange({ ...options, optimize })}
+      />
+    </div>
+  );
+}
+
 function RangeControl({
   label,
   value,
@@ -445,9 +633,48 @@ function RangeControl({
   );
 }
 
-function getReadonlyOptionRows(options?: ConversionOptions | null) {
+function SwitchControl({
+  label,
+  checked,
+  hint,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  hint: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="switch-control option-card">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.currentTarget.checked)}
+      />
+      <span>
+        <strong>{label}</strong>
+        <small>{hint}</small>
+      </span>
+    </label>
+  );
+}
+
+function getReadonlyOptionRows(job: Job) {
+  const options = job.conversion_options;
   if (!options) return [];
-  if ("quality" in options) {
+
+  if ("crf" in options) {
+    return [
+      { label: "FPS", value: `${options.fps}` },
+      { label: "CRF", value: `${options.crf}` },
+      { label: "Preset", value: options.preset },
+    ];
+  }
+  if (
+    job.input_format === "gif" &&
+    job.target_format === "webp" &&
+    "compression_level" in options
+  ) {
     return [
       { label: "FPS", value: `${options.fps}` },
       { label: "Quality", value: `${options.quality}` },
@@ -455,11 +682,27 @@ function getReadonlyOptionRows(options?: ConversionOptions | null) {
       { label: "Lossless", value: options.lossless ? "On" : "Off" },
     ];
   }
-  if ("crf" in options) {
+  if (
+    (job.target_format === "jpg" || job.target_format === "jpeg") &&
+    "progressive" in options
+  ) {
     return [
-      { label: "FPS", value: `${options.fps}` },
-      { label: "CRF", value: `${options.crf}` },
-      { label: "Preset", value: options.preset },
+      { label: "Quality", value: `${options.quality}` },
+      { label: "Progressive", value: options.progressive ? "On" : "Off" },
+      { label: "Optimize", value: options.optimize ? "On" : "Off" },
+    ];
+  }
+  if (job.target_format === "png" && "compress_level" in options) {
+    return [
+      { label: "Compress Level", value: `${options.compress_level}` },
+      { label: "Optimize", value: options.optimize ? "On" : "Off" },
+    ];
+  }
+  if (job.target_format === "webp" && "method" in options) {
+    return [
+      { label: "Quality", value: `${options.quality}` },
+      { label: "Method", value: `${options.method}` },
+      { label: "Lossless", value: options.lossless ? "On" : "Off" },
     ];
   }
   return [];

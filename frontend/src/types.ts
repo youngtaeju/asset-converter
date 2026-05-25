@@ -33,7 +33,29 @@ export type GifMp4Options = {
   preset: GifMp4Preset;
 };
 
-export type ConversionOptions = GifWebpOptions | GifMp4Options;
+export type JpegOptions = {
+  quality: number;
+  progressive: boolean;
+  optimize: boolean;
+};
+
+export type PngOptions = {
+  compress_level: number;
+  optimize: boolean;
+};
+
+export type StaticWebpOptions = {
+  quality: number;
+  lossless: boolean;
+  method: number;
+};
+
+export type ConversionOptions =
+  | GifWebpOptions
+  | GifMp4Options
+  | JpegOptions
+  | PngOptions
+  | StaticWebpOptions;
 
 export type WarningNote = {
   code: string;

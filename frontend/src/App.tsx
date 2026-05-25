@@ -3,8 +3,11 @@ import { ActivityPanel, type ActivityTab } from "./components/ActivityPanel";
 import { ConversionActionBar } from "./components/ConversionActionBar";
 import {
   ConversionOptionsModal,
+  defaultOptionState,
+  getActiveConversionOptions,
   getConversionOptionsSummary,
-  isGifAdvancedTarget,
+  isAdvancedConversion,
+  type ConversionOptionState,
 } from "./components/ConversionOptionsModal";
 import { HealthModal } from "./components/HealthModal";
 import { Toast, type ToastState, type ToastTone } from "./components/Toast";
@@ -19,9 +22,6 @@ import {
 } from "./lib/api";
 import type {
   ConversionOptions,
-  ConversionPreset,
-  GifMp4Options,
-  GifWebpOptions,
   Job,
   SourceFormat,
   TargetFormat,
@@ -70,19 +70,6 @@ const acceptedMimeBySource: Record<SourceFormat, string> = {
   webp: "image/webp,.webp",
 };
 
-const gifWebpDefaults: GifWebpOptions = {
-  fps: 24,
-  quality: 75,
-  compression_level: 6,
-  lossless: false,
-};
-
-const gifMp4Defaults: GifMp4Options = {
-  fps: 24,
-  crf: 26,
-  preset: "slow",
-};
-
 function normalizeSourceFormat(filename: string) {
   const extension = filename.split(".").pop()?.trim().toLowerCase();
   if (!extension || extension === filename.toLowerCase()) return null;
@@ -109,20 +96,16 @@ export function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [optionsModalOpen, setOptionsModalOpen] = useState(false);
   const [settingsJob, setSettingsJob] = useState<Job | null>(null);
-  const [conversionPreset, setConversionPreset] =
-    useState<ConversionPreset>("balanced");
-  const [gifWebpOptions, setGifWebpOptions] =
-    useState<GifWebpOptions>(gifWebpDefaults);
-  const [gifMp4Options, setGifMp4Options] =
-    useState<GifMp4Options>(gifMp4Defaults);
+  const [conversionOptions, setConversionOptions] =
+    useState<ConversionOptionState>(defaultOptionState);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const targetOptions = targetOptionsBySource[sourceFormat];
-  const advancedAvailable = isGifAdvancedTarget(sourceFormat, target);
+  const advancedAvailable = isAdvancedConversion(sourceFormat, target);
   const optionsSummary = getConversionOptionsSummary(
     sourceFormat,
     target,
-    conversionPreset,
+    conversionOptions.preset,
   );
 
   function showToast(tone: ToastTone, message: string) {
@@ -133,12 +116,10 @@ export function App() {
     return `${file.name}-${file.size}-${file.lastModified}`;
   }
 
-  const activeConversionOptions = useMemo<ConversionOptions | undefined>(() => {
-    if (sourceFormat !== "gif") return undefined;
-    if (target === "webp") return gifWebpOptions;
-    if (target === "mp4") return gifMp4Options;
-    return undefined;
-  }, [gifMp4Options, gifWebpOptions, sourceFormat, target]);
+  const activeConversionOptions = useMemo<ConversionOptions | undefined>(
+    () => getActiveConversionOptions(sourceFormat, target, conversionOptions),
+    [conversionOptions, sourceFormat, target],
+  );
 
   const activeJobs = useMemo(
     () =>
@@ -242,9 +223,7 @@ export function App() {
     setFiles([]);
     resetFileInput();
     setOptionsModalOpen(false);
-    setConversionPreset("balanced");
-    setGifWebpOptions(gifWebpDefaults);
-    setGifMp4Options(gifMp4Defaults);
+    setConversionOptions(defaultOptionState);
     if (files.length > 0) {
       showToast(
         "success",
@@ -256,19 +235,11 @@ export function App() {
   function changeTarget(nextTarget: TargetFormat) {
     setTarget(nextTarget);
     setOptionsModalOpen(false);
-    setConversionPreset("balanced");
-    setGifWebpOptions(gifWebpDefaults);
-    setGifMp4Options(gifMp4Defaults);
+    setConversionOptions(defaultOptionState);
   }
 
-  function applyConversionOptions(values: {
-    preset: ConversionPreset;
-    gifWebpOptions: GifWebpOptions;
-    gifMp4Options: GifMp4Options;
-  }) {
-    setConversionPreset(values.preset);
-    setGifWebpOptions(values.gifWebpOptions);
-    setGifMp4Options(values.gifMp4Options);
+  function applyConversionOptions(values: ConversionOptionState) {
+    setConversionOptions(values);
   }
 
   async function openHealthModal() {
@@ -385,9 +356,7 @@ export function App() {
           mode="edit"
           sourceFormat={sourceFormat}
           target={target}
-          conversionPreset={conversionPreset}
-          gifWebpOptions={gifWebpOptions}
-          gifMp4Options={gifMp4Options}
+          optionState={conversionOptions}
           onApply={applyConversionOptions}
           onClose={() => setOptionsModalOpen(false)}
         />

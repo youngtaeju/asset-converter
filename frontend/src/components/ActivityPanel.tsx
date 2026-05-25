@@ -10,6 +10,7 @@ type ActivityPanelProps = {
   history: Job[];
   historyLimit: number;
   onTabChange: (tab: ActivityTab) => void;
+  onViewSettings: (job: Job) => void;
 };
 
 export function ActivityPanel({
@@ -18,6 +19,7 @@ export function ActivityPanel({
   history,
   historyLimit,
   onTabChange,
+  onViewSettings,
 }: ActivityPanelProps) {
   return (
     <section className="panel activity-panel">
@@ -53,9 +55,13 @@ export function ActivityPanel({
       </div>
 
       {activeTab === "jobs" ? (
-        <JobsPanel jobs={jobs} />
+        <JobsPanel jobs={jobs} onViewSettings={onViewSettings} />
       ) : (
-        <HistoryPanel history={history} limit={historyLimit} />
+        <HistoryPanel
+          history={history}
+          limit={historyLimit}
+          onViewSettings={onViewSettings}
+        />
       )}
     </section>
   );

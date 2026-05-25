@@ -1,8 +1,11 @@
 import type { KeyboardEvent, RefObject } from "react";
 import { formatBytes } from "../lib/format";
+import type { SourceFormat } from "../types";
 
 type UploadPanelProps = {
   files: File[];
+  sourceFormat: SourceFormat;
+  accept: string;
   isDragging: boolean;
   isSubmitting: boolean;
   fileInputRef: RefObject<HTMLInputElement | null>;
@@ -13,6 +16,8 @@ type UploadPanelProps = {
 
 export function UploadPanel({
   files,
+  sourceFormat,
+  accept,
   isDragging,
   isSubmitting,
   fileInputRef,
@@ -21,6 +26,7 @@ export function UploadPanel({
   onDraggingChange,
 }: UploadPanelProps) {
   const selectedSize = files.reduce((total, file) => total + file.size, 0);
+  const sourceLabel = sourceFormat.toUpperCase();
 
   function openFilePicker() {
     fileInputRef.current?.click();
@@ -64,18 +70,21 @@ export function UploadPanel({
           ref={fileInputRef}
           type="file"
           multiple
+          accept={accept}
           onChange={(event) => onAddFiles(event.currentTarget.files)}
           hidden
         />
         <div className="drop-icon">Upload</div>
-        <strong>파일을 드롭하거나 선택</strong>
-        <span>GIF, JPG, PNG, WebP를 지원합니다.</span>
+        <strong>{sourceLabel} 파일을 드롭하거나 선택</strong>
+        <span>현재 원본 형식과 일치하는 파일만 추가할 수 있습니다.</span>
       </div>
 
       {files.length > 0 && (
         <div className="selected-files">
           <div className="selected-files-summary">
-            <span>선택된 파일 {files.length}개</span>
+            <span>
+              {sourceLabel} 파일 {files.length}개
+            </span>
             <small>총 {formatBytes(selectedSize)}</small>
           </div>
           <div className="file-list">

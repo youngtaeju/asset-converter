@@ -5,9 +5,14 @@ import type { Job } from "../types";
 type HistoryPanelProps = {
   history: Job[];
   limit: number;
+  onViewSettings: (job: Job) => void;
 };
 
-export function HistoryPanel({ history, limit }: HistoryPanelProps) {
+export function HistoryPanel({
+  history,
+  limit,
+  onViewSettings,
+}: HistoryPanelProps) {
   return (
     <div className="history-panel" role="tabpanel">
       {history.length === 0 ? (
@@ -29,15 +34,24 @@ export function HistoryPanel({ history, limit }: HistoryPanelProps) {
                       {statusLabels[job.status]} · {formatDate(job.created_at)}
                     </small>
                   </div>
-                  {job.download_available && (
-                    <a
-                      className="download"
-                      href={`/api/jobs/${job.id}/download`}
-                      download={downloadFilename(job)}
+                  <div className="job-action-buttons">
+                    <button
+                      className="secondary settings-button"
+                      type="button"
+                      onClick={() => onViewSettings(job)}
                     >
-                      다운로드
-                    </a>
-                  )}
+                      설정 보기
+                    </button>
+                    {job.download_available && (
+                      <a
+                        className="download"
+                        href={`/api/jobs/${job.id}/download`}
+                        download={downloadFilename(job)}
+                      >
+                        다운로드
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

@@ -2,7 +2,12 @@ import { downloadFilename, formatBytes, formatDate } from "../lib/format";
 import { statusLabels } from "../lib/job-status";
 import type { Job } from "../types";
 
-export function JobCard({ job }: { job: Job }) {
+type JobCardProps = {
+  job: Job;
+  onViewSettings: (job: Job) => void;
+};
+
+export function JobCard({ job, onViewSettings }: JobCardProps) {
   return (
     <article className={`job-card ${job.status}`}>
       <div className="job-topline">
@@ -27,27 +32,27 @@ export function JobCard({ job }: { job: Job }) {
           }}
         />
       </div>
-      {job.warnings.length > 0 && (
-        <div className="warnings">
-          {job.warnings.map((warning) => (
-            <span key={`${job.id}-${warning.code}`} title={warning.message}>
-              {warning.code}
-            </span>
-          ))}
-        </div>
-      )}
       {job.error_summary && <p className="error">{job.error_summary}</p>}
       <div className="job-actions">
         <small>만료: {formatDate(job.expires_at)}</small>
-        {job.download_available && (
-          <a
-            className="download"
-            href={`/api/jobs/${job.id}/download`}
-            download={downloadFilename(job)}
+        <div className="job-action-buttons">
+          <button
+            className="secondary settings-button"
+            type="button"
+            onClick={() => onViewSettings(job)}
           >
-            다운로드
-          </a>
-        )}
+            설정 보기
+          </button>
+          {job.download_available && (
+            <a
+              className="download"
+              href={`/api/jobs/${job.id}/download`}
+              download={downloadFilename(job)}
+            >
+              다운로드
+            </a>
+          )}
+        </div>
       </div>
     </article>
   );

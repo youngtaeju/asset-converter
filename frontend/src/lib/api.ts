@@ -1,4 +1,9 @@
-import type { BatchResponse, Job, TargetFormat } from "../types";
+import type {
+  BatchResponse,
+  ConversionOptions,
+  Job,
+  TargetFormat,
+} from "../types";
 
 export const DEFAULT_HISTORY_LIMIT = 50;
 
@@ -9,8 +14,13 @@ async function fetchJson<T>(
   const response = await fetch(input, init);
   const data = await response.json().catch(() => null);
   if (!response.ok) {
+    const errorCode = data?.error?.code;
     const message =
-      data?.error?.message ?? data?.detail ?? "요청을 처리하지 못했습니다.";
+      errorCode === "MIXED_INPUT_FORMATS"
+        ? "동일한 확장자의 파일만 함께 변환할 수 있습니다."
+        : (data?.error?.message ??
+          data?.detail ??
+          "요청을 처리하지 못했습니다.");
     throw new Error(
       Array.isArray(message) ? "입력값을 확인해 주세요." : message,
     );
@@ -34,11 +44,15 @@ export async function createBatchJobs(
   files: File[],
   target: TargetFormat,
   backgroundColor: string,
+  conversionOptions?: ConversionOptions,
 ) {
   const form = new FormData();
   files.forEach((file) => form.append("files[]", file));
   form.append("target_format", target);
   form.append("background_color", backgroundColor);
+  if (conversionOptions) {
+    form.append("conversion_options", JSON.stringify(conversionOptions));
+  }
 
   return fetchJson<BatchResponse>("/api/jobs/batch", {
     method: "POST",

@@ -3,9 +3,10 @@ import { JobCard } from "./JobCard";
 
 type JobsPanelProps = {
   jobs: Job[];
+  onViewSettings: (job: Job) => void;
 };
 
-export function JobsPanel({ jobs }: JobsPanelProps) {
+export function JobsPanel({ jobs, onViewSettings }: JobsPanelProps) {
   return (
     <div className="jobs-panel" role="tabpanel">
       {jobs.length === 0 ? (
@@ -13,7 +14,7 @@ export function JobsPanel({ jobs }: JobsPanelProps) {
       ) : (
         <div className="job-list">
           {jobs.map((job) => (
-            <JobCard job={job} key={job.id} />
+            <JobCard job={job} onViewSettings={onViewSettings} key={job.id} />
           ))}
         </div>
       )}

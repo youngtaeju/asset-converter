@@ -1,5 +1,7 @@
 import type { BatchResponse, Job, TargetFormat } from "../types";
 
+export const DEFAULT_HISTORY_LIMIT = 50;
+
 async function fetchJson<T>(
   input: RequestInfo,
   init?: RequestInit,
@@ -16,7 +18,7 @@ async function fetchJson<T>(
   return data as T;
 }
 
-export async function fetchHistory(limit = 12) {
+export async function fetchHistory(limit = DEFAULT_HISTORY_LIMIT) {
   return fetchJson<{ jobs: Job[] }>(`/api/history?limit=${limit}`);
 }
 

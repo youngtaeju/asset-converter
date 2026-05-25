@@ -7,6 +7,7 @@ import { Topbar } from "./components/Topbar";
 import { UploadPanel } from "./components/UploadPanel";
 import {
   createBatchJobs,
+  DEFAULT_HISTORY_LIMIT,
   fetchHealth,
   fetchHistory,
   fetchJob,
@@ -56,7 +57,7 @@ export function App() {
   );
 
   const refreshHistory = useCallback(async () => {
-    const data = await fetchHistory(12);
+    const data = await fetchHistory(DEFAULT_HISTORY_LIMIT);
     setHistory(data.jobs ?? []);
   }, []);
 
@@ -191,6 +192,7 @@ export function App() {
           activeTab={activityTab}
           jobs={jobs}
           history={history}
+          historyLimit={DEFAULT_HISTORY_LIMIT}
           onTabChange={setActivityTab}
         />
       </section>

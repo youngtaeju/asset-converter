@@ -44,3 +44,20 @@ def test_rejects_out_of_range_static_option():
             ConversionTarget.png,
             {"compress_level": 10},
         )
+
+
+def test_normalizes_gif_to_gif_options():
+    assert normalize_conversion_options(
+        "gif",
+        ConversionTarget.gif,
+        {"fps": 12, "colors": 96, "dither": "bayer"},
+    ) == {"fps": 12, "colors": 96, "dither": "bayer"}
+
+
+def test_rejects_out_of_range_gif_to_gif_options():
+    with pytest.raises(ConversionOptionsError):
+        normalize_conversion_options(
+            "gif",
+            ConversionTarget.gif,
+            {"fps": 12, "colors": 300, "dither": "bayer"},
+        )

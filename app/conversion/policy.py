@@ -26,8 +26,10 @@ def validate_conversion(input_format: str, target: ConversionTarget) -> list[dic
         raise ValueError("Unsupported input media type.")
     if target_format == "mp4" and input_format != "gif":
         raise ValueError("Only GIF to MP4 is supported in the MVP.")
-    if input_format == "gif" and target_format not in {"mp4", "webp", "jpg", "jpeg", "png"}:
+    if input_format == "gif" and target_format not in {"mp4", "webp", "jpg", "jpeg", "png", "gif"}:
         raise ValueError("Unsupported GIF target format.")
+    if target_format == "gif" and input_format != "gif":
+        raise ValueError("Only GIF inputs can be optimized as GIF output.")
 
     warnings: list[dict[str, str]] = []
     if target_format in {"jpg", "jpeg"}:

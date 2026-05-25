@@ -7,6 +7,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from app.models import ConversionTarget
 
 
+class GifDither(StrEnum):
+    none = "none"
+    bayer = "bayer"
+    floyd_steinberg = "floyd_steinberg"
+
+
 class Mp4EncodingPreset(StrEnum):
     ultrafast = "ultrafast"
     superfast = "superfast"
@@ -17,6 +23,14 @@ class Mp4EncodingPreset(StrEnum):
     slow = "slow"
     slower = "slower"
     veryslow = "veryslow"
+
+
+class GifToGifOptions(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    fps: int = Field(default=15, ge=1, le=60)
+    colors: int = Field(default=128, ge=2, le=256)
+    dither: GifDither = GifDither.floyd_steinberg
 
 
 class GifToWebpOptions(BaseModel):
@@ -84,6 +98,8 @@ def normalize_conversion_options(
         return {}
 
     try:
+        if input_format == "gif" and target == ConversionTarget.gif:
+            return GifToGifOptions.model_validate(options).model_dump(mode="json")
         if input_format == "gif" and target == ConversionTarget.mp4:
             return GifToMp4Options.model_validate(options).model_dump(mode="json")
         if input_format == "gif" and target == ConversionTarget.webp:

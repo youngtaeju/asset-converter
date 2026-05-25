@@ -14,6 +14,23 @@ def make_gif(path: Path):
     Image.new("RGBA", (2, 2), (0, 255, 0, 255)).save(path, "GIF")
 
 
+def make_webp(path: Path):
+    Image.new("RGBA", (2, 2), (0, 0, 255, 255)).save(path, "WEBP")
+
+
+def make_animated_webp(path: Path):
+    first = Image.new("RGBA", (2, 2), (0, 0, 255, 255))
+    second = Image.new("RGBA", (2, 2), (255, 0, 0, 255))
+    first.save(
+        path,
+        "WEBP",
+        save_all=True,
+        append_images=[second],
+        duration=100,
+        loop=0,
+    )
+
+
 def configure_runtime(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("ASSET_TEMP_ROOT", str(tmp_path / "temp"))
     monkeypatch.setenv("ASSET_DATA_ROOT", str(tmp_path / "data"))
@@ -121,6 +138,82 @@ def test_batch_rejects_mixed_input_formats_before_creating_jobs(tmp_path, monkey
     assert body["error"]["code"] == "MIXED_INPUT_FORMATS"
     assert body["error"]["details"]["input_formats"] == ["gif", "png"]
 
+    assert client.get("/api/history").json()["jobs"] == []
+
+
+def test_create_gif_to_gif_job_eager(tmp_path, monkeypatch):
+    configure_runtime(monkeypatch, tmp_path)
+    gif = tmp_path / "sample.gif"
+    make_gif(gif)
+    client = TestClient(app)
+
+    with gif.open("rb") as gif_file:
+        response = client.post(
+            "/api/jobs",
+            files={"file": ("sample.gif", gif_file, "image/gif")},
+            data={
+                "target_format": "gif",
+                "conversion_options": '{"fps":12,"colors":96,"dither":"bayer"}',
+            },
+        )
+
+    assert response.status_code == 202
+    body = response.json()["job"]
+    assert body["input_format"] == "gif"
+    assert body["target_format"] == "gif"
+    assert body["conversion_options"] == {
+        "fps": 12,
+        "colors": 96,
+        "dither": "bayer",
+    }
+
+
+def test_create_static_webp_to_webp_job_eager(tmp_path, monkeypatch):
+    configure_runtime(monkeypatch, tmp_path)
+    webp = tmp_path / "sample.webp"
+    make_webp(webp)
+    client = TestClient(app)
+
+    with webp.open("rb") as webp_file:
+        response = client.post(
+            "/api/jobs",
+            files={"file": ("sample.webp", webp_file, "image/webp")},
+            data={
+                "target_format": "webp",
+                "conversion_options": '{"quality":70,"lossless":false,"method":6}',
+            },
+        )
+
+    assert response.status_code == 202
+    body = response.json()["job"]
+    assert body["input_format"] == "webp"
+    assert body["target_format"] == "webp"
+    assert body["conversion_options"] == {
+        "quality": 70,
+        "lossless": False,
+        "method": 6,
+    }
+
+
+def test_rejects_animated_webp_to_webp_before_creating_job(tmp_path, monkeypatch):
+    configure_runtime(monkeypatch, tmp_path)
+    webp = tmp_path / "animated.webp"
+    make_animated_webp(webp)
+    client = TestClient(app)
+
+    with webp.open("rb") as webp_file:
+        response = client.post(
+            "/api/jobs",
+            files={"file": ("animated.webp", webp_file, "image/webp")},
+            data={"target_format": "webp"},
+        )
+
+    assert response.status_code == 400
+    assert response.json()["error"] == {
+        "code": "UNSUPPORTED_CONVERSION",
+        "message": "Animated WebP optimization is not supported yet.",
+        "details": {},
+    }
     assert client.get("/api/history").json()["jobs"] == []
 
 

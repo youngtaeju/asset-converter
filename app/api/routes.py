@@ -7,6 +7,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, Response, Upl
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.config import get_settings
+from app.conversion.engine import ensure_static_webp
 from app.conversion.options import (
     ConversionOptionsError,
     normalize_conversion_options,
@@ -85,6 +86,18 @@ def upload_header_format(file: UploadFile) -> str | None:
     return detect_format(header)
 
 
+def reject_unsupported_source_target(
+    input_format: str,
+    target_format: ConversionTarget,
+    source_path: Path,
+) -> None:
+    if input_format == "webp" and target_format == ConversionTarget.webp:
+        try:
+            ensure_static_webp(source_path)
+        except RuntimeError as exc:
+            raise UploadRejected("UNSUPPORTED_CONVERSION", str(exc)) from exc
+
+
 def mixed_input_format_error(files: list[UploadFile]) -> JSONResponse | None:
     formats = sorted({fmt for file in files if (fmt := upload_header_format(file))})
     if len(formats) <= 1:
@@ -114,6 +127,7 @@ def create_job_from_upload(
     job_id, source_path, input_format, size = save_upload(file, settings)
     try:
         warnings = validate_conversion(input_format, target_format)
+        reject_unsupported_source_target(input_format, target_format, source_path)
         normalized_options = normalize_conversion_options(
             input_format,
             target_format,

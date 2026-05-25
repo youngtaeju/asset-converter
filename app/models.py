@@ -19,6 +19,7 @@ class ConversionTarget(StrEnum):
     jpg = "jpg"
     jpeg = "jpeg"
     png = "png"
+    gif = "gif"
 
 
 class WarningCode(StrEnum):

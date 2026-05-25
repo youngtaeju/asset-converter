@@ -7,6 +7,7 @@ from PIL import Image, ImageSequence, UnidentifiedImageError
 
 from app.config import Settings, get_settings
 from app.conversion.options import (
+    GifToGifOptions,
     GifToMp4Options,
     GifToWebpOptions,
     JpegOptions,
@@ -28,6 +29,32 @@ class ConversionResult:
 def sanitize_stderr(stderr: str, max_len: int = 1000) -> str:
     cleaned = " ".join(stderr.replace("\x00", "").split())
     return cleaned[:max_len]
+
+
+def gif_to_gif_command(
+    source: Path,
+    dest: Path,
+    options: dict | None = None,
+) -> list[str]:
+    normalized = GifToGifOptions.model_validate(options or {})
+    filter_complex = (
+        f"fps={normalized.fps},"
+        "scale=trunc(iw/2)*2:trunc(ih/2)*2,"
+        "split[s0][s1];"
+        f"[s0]palettegen=max_colors={normalized.colors}[p];"
+        f"[s1][p]paletteuse=dither={normalized.dither.value}"
+    )
+    return [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(source),
+        "-filter_complex",
+        filter_complex,
+        "-loop",
+        "0",
+        str(dest),
+    ]
 
 
 def gif_to_mp4_command(
@@ -125,7 +152,12 @@ def convert_asset(
     settings = settings or get_settings()
     warnings = validate_conversion(input_format, target)
     start = monotonic()
-    if input_format == "gif" and target == ConversionTarget.mp4:
+    if input_format == "gif" and target == ConversionTarget.gif:
+        _run_ffmpeg(
+            gif_to_gif_command(source, dest, conversion_options),
+            settings.ffmpeg_timeout_seconds,
+        )
+    elif input_format == "gif" and target == ConversionTarget.mp4:
         _run_ffmpeg(
             gif_to_mp4_command(source, dest, conversion_options),
             settings.ffmpeg_timeout_seconds,
@@ -136,6 +168,8 @@ def convert_asset(
             settings.ffmpeg_timeout_seconds,
         )
     else:
+        if input_format == "webp" and target == ConversionTarget.webp:
+            ensure_static_webp(source)
         _convert_with_pillow(source, dest, target, background_color, conversion_options)
     duration_ms = int((monotonic() - start) * 1000)
     return ConversionResult(dest, dest.stat().st_size, duration_ms, warnings)
@@ -156,6 +190,17 @@ def _run_ffmpeg(command: list[str], timeout_seconds: int) -> None:
         raise RuntimeError("FFmpeg is not installed or not available on PATH.") from exc
     if proc.returncode != 0:
         raise RuntimeError(f"FFmpeg conversion failed: {sanitize_stderr(proc.stderr)}")
+
+
+def ensure_static_webp(source: Path) -> None:
+    try:
+        with Image.open(source) as img:
+            if getattr(img, "is_animated", False) or getattr(img, "n_frames", 1) > 1:
+                raise RuntimeError("Animated WebP optimization is not supported yet.")
+    except RuntimeError:
+        raise
+    except (UnidentifiedImageError, OSError) as exc:
+        raise RuntimeError("Input image is corrupt or unreadable.") from exc
 
 
 def _convert_with_pillow(
